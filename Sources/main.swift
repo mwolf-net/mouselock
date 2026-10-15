@@ -7,6 +7,7 @@
 
 import AppKit
 import Carbon.HIToolbox
+import IOKit.pwr_mgt
 
 // Hotkey that toggles the lock: Ctrl+Option+Cmd+L.
 let hotKeyCode = UInt32(kVK_ANSI_L)
@@ -128,10 +129,80 @@ final class Locker {
     }
 }
 
+// MARK: - Stay awake
+
+/// Holds a power assertion that stops idle display sleep. That also keeps the
+/// screen saver from starting, and with it the password lock that macOS
+/// ties to "screen saver begins or display is turned off".
+final class StayAwake {
+    private var assertion: IOPMAssertionID?
+
+    var isActive: Bool { assertion != nil }
+
+    func set(_ active: Bool) {
+        if active, assertion == nil {
+            var id = IOPMAssertionID(0)
+            let result = IOPMAssertionCreateWithName(
+                kIOPMAssertionTypePreventUserIdleDisplaySleep as CFString,
+                IOPMAssertionLevel(kIOPMAssertionLevelOn),
+                "MouseLock keeping the display awake" as CFString,
+                &id
+            )
+            if result == kIOReturnSuccess { assertion = id }
+        } else if !active, let id = assertion {
+            IOPMAssertionRelease(id)
+            assertion = nil
+        }
+    }
+}
+
+// MARK: - Pointer visibility
+
+// Private CoreGraphics calls. CGDisplayHideCursor normally only works for the
+// frontmost app; the "SetsCursorInBackground" connection property lets a
+// background app like this one hide the pointer system-wide. Undocumented,
+// so a future macOS may ignore it, in which case the pointer just stays visible.
+typealias CGSConnectionID = Int32
+@_silgen_name("_CGSDefaultConnection")
+func _CGSDefaultConnection() -> CGSConnectionID
+@_silgen_name("CGSSetConnectionProperty")
+func CGSSetConnectionProperty(_ connection: CGSConnectionID, _ target: CGSConnectionID,
+                              _ key: CFString, _ value: CFTypeRef) -> CGError
+
+final class PointerHider {
+    private var hidden = false
+    private var allowedInBackground = false
+
+    func set(_ hide: Bool) {
+        guard hide != hidden else { return }
+        if hide {
+            if !allowedInBackground {
+                let connection = _CGSDefaultConnection()
+                allowedInBackground = CGSSetConnectionProperty(
+                    connection, connection, "SetsCursorInBackground" as CFString, kCFBooleanTrue
+                ) == .success
+            }
+            CGDisplayHideCursor(kCGNullDirectDisplay)
+        } else {
+            CGDisplayShowCursor(kCGNullDirectDisplay)
+        }
+        hidden = hide
+    }
+}
+
 // MARK: - App
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let locker = Locker()
+    let stayAwake = StayAwake()
+    /// Stay awake even while unlocked (menu toggle).
+    var keepAwakeManually = false
+    let pointerHider = PointerHider()
+    /// Touch-screen mode: hide the pointer while locked (menu toggle, remembered).
+    var hidePointerWhileLocked: Bool {
+        get { UserDefaults.standard.bool(forKey: "hidePointerWhileLocked") }
+        set { UserDefaults.standard.set(newValue, forKey: "hidePointerWhileLocked") }
+    }
     var statusItem: NSStatusItem!
     var lastTarget: CGDirectDisplayID?
 
@@ -141,8 +212,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
 
-        locker.onChange = { [weak self] in self?.updateIcon() }
-        updateIcon()
+        locker.onChange = { [weak self] in self?.updateState() }
+        updateState()
         registerHotKey()
 
         NotificationCenter.default.addObserver(
@@ -151,8 +222,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ) { [weak self] _ in self?.locker.refresh() }
     }
 
-    func updateIcon() {
-        let symbol = locker.isLocked ? "lock.fill" : "cursorarrow"
+    func applicationWillTerminate(_ notification: Notification) {
+        pointerHider.set(false)
+    }
+
+    func updateState() {
+        stayAwake.set(locker.isLocked || keepAwakeManually)
+        pointerHider.set(locker.isLocked && hidePointerWhileLocked)
+
+        let symbol = locker.isLocked ? "lock.fill"
+            : stayAwake.isActive ? "cup.and.saucer.fill"
+            : "cursorarrow"
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "MouseLock")
         image?.isTemplate = true
         statusItem.button?.image = image
@@ -178,6 +258,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
+        if locker.isLocked {
+            let awake = NSMenuItem(title: "Keeping Display Awake (while locked)", action: nil, keyEquivalent: "")
+            awake.state = .on
+            awake.isEnabled = false
+            menu.addItem(awake)
+        } else {
+            let awake = item("Keep Display Awake", #selector(keepAwakeClicked))
+            awake.state = keepAwakeManually ? .on : .off
+            menu.addItem(awake)
+        }
+
+        let hide = item("Hide Pointer While Locked", #selector(hidePointerClicked))
+        hide.state = hidePointerWhileLocked ? .on : .off
+        menu.addItem(hide)
+
+        menu.addItem(.separator())
         let hint = NSMenuItem(title: "Toggle: \(hotKeyLabel)", action: nil, keyEquivalent: "")
         hint.isEnabled = false
         menu.addItem(hint)
@@ -196,6 +292,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func unlockClicked() { locker.unlock() }
+
+    @objc func hidePointerClicked() {
+        hidePointerWhileLocked.toggle()
+        updateState()
+    }
+
+    @objc func keepAwakeClicked() {
+        keepAwakeManually.toggle()
+        updateState()
+    }
 
     @objc func quitClicked() { NSApp.terminate(nil) }
 

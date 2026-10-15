@@ -7,6 +7,12 @@ A small menu bar app that keeps the mouse pointer on one display.
 - Ctrl+Opt+Cmd+L toggles the lock. When locking, it uses the display you
   locked to last, or else the first external display.
 - If the locked display is disconnected, the lock is released.
+- While locked, the display is kept awake: no screen saver, no display
+  sleep, and so no password lock from inactivity. "Keep Display Awake" in the
+  menu does the same while unlocked.
+- "Hide Pointer While Locked" (remembered between launches) hides the pointer
+  while locked, for touch screens. It relies on an undocumented macOS setting,
+  so a future macOS may ignore it and leave the pointer visible.
 
 ## Build
 
