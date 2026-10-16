@@ -71,10 +71,20 @@ final class Locker {
     var avoidBottomEdge = false {
         didSet { if let lockedDisplay { updateBounds(for: lockedDisplay) } }
     }
+    /// Keep the pointer off the top rows: resting there reveals a hidden menu
+    /// bar (in full-screen apps, or with menu bar auto-hide). One row wasn't
+    /// enough in testing; four was.
+    var avoidTopEdge = false {
+        didSet { if let lockedDisplay { updateBounds(for: lockedDisplay) } }
+    }
 
     private func updateBounds(for display: CGDirectDisplayID) {
         bounds = CGDisplayBounds(display)
         if avoidBottomEdge { bounds.size.height -= 1 }
+        if avoidTopEdge {
+            bounds.origin.y += 4
+            bounds.size.height -= 4
+        }
     }
 
     /// Returns false if the event tap couldn't be created (no Accessibility permission).
@@ -319,6 +329,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         get { UserDefaults.standard.bool(forKey: "keepDockOffLockScreen") }
         set { UserDefaults.standard.set(newValue, forKey: "keepDockOffLockScreen") }
     }
+    /// Keep the pointer off the lock screen's top row while locked
+    /// (menu toggle, remembered, on by default).
+    var keepMenuBarHidden: Bool {
+        get { UserDefaults.standard.bool(forKey: "keepMenuBarHiddenOnLockScreen") }
+        set { UserDefaults.standard.set(newValue, forKey: "keepMenuBarHiddenOnLockScreen") }
+    }
     var statusItem: NSStatusItem!
     /// The display the pointer gets locked to.
     var lockScreen: CGDirectDisplayID?
@@ -332,8 +348,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
 
-        UserDefaults.standard.register(defaults: ["keepDockOffLockScreen": true])
+        UserDefaults.standard.register(defaults: [
+            "keepDockOffLockScreen": true,
+            "keepMenuBarHiddenOnLockScreen": true,
+        ])
         locker.avoidBottomEdge = keepDockOff
+        locker.avoidTopEdge = keepMenuBarHidden
         lockScreen = defaultLockScreen()
         locker.onChange = { [weak self] in self?.updateState() }
         locker.onClick = { [weak self] point, isPress in
@@ -457,6 +477,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         dock.state = keepDockOff ? .on : .off
         menu.addItem(dock)
 
+        let menuBar = item("Keep Menu Bar Hidden on Lock Screen", #selector(keepMenuBarHiddenClicked))
+        menuBar.state = keepMenuBarHidden ? .on : .off
+        menu.addItem(menuBar)
+
         menu.addItem(.separator())
         menu.addItem(item("Quit MouseLock", #selector(quitClicked)))
     }
@@ -480,6 +504,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func keepDockOffClicked() {
         keepDockOff.toggle()
         locker.avoidBottomEdge = keepDockOff
+    }
+
+    @objc func keepMenuBarHiddenClicked() {
+        keepMenuBarHidden.toggle()
+        locker.avoidTopEdge = keepMenuBarHidden
     }
 
     @objc func hidePointerClicked() {

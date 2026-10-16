@@ -16,6 +16,10 @@ A small menu bar app that keeps the mouse pointer on one display.
 - "Keep Dock Off Lock Screen" (on by default, remembered) keeps the pointer
   off the lock screen's bottom row while locked, so pushing down there can't
   make macOS move the Dock onto it.
+- "Keep Menu Bar Hidden on Lock Screen" (on by default, remembered) likewise
+  keeps the pointer off the top few rows, so a hidden menu bar (in full-screen
+  apps, or with menu bar auto-hide) doesn't slide down. A menu bar that is
+  always shown can still be clicked.
 - "Hide Pointer While Locked" (remembered between launches) hides the pointer
   while locked, for touch screens. It relies on an undocumented macOS setting,
   so a future macOS may ignore it and leave the pointer visible.
