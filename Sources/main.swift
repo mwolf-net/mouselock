@@ -66,9 +66,10 @@ final class Locker {
 
     var isLocked: Bool { lockedDisplay != nil }
 
-    /// Drop right-clicks while locked, so the mouse alone can't open context
-    /// menus. Ctrl+click still works: whoever has the keyboard is in charge.
-    var blockRightClicks = false
+    /// Drop right-clicks and other extra buttons (middle, back/forward) while
+    /// locked, so the mouse alone can't open context menus or navigate the
+    /// browser. Ctrl+click still works: whoever has the keyboard is in charge.
+    var blockExtraButtons = false
 
     /// Where the pointer was before locking (if on another display), so
     /// unlocking can put it back.
@@ -153,6 +154,7 @@ final class Locker {
         let types: [CGEventType] = [
             .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
             .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp,
+            .otherMouseDown, .otherMouseUp,
         ]
         let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
         let callback: CGEventTapCallBack = { _, type, event, refcon in
@@ -182,8 +184,10 @@ final class Locker {
         guard isLocked else { return Unmanaged.passUnretained(event) }
 
         switch type {
+        case .otherMouseDown, .otherMouseUp:
+            return blockExtraButtons ? nil : Unmanaged.passUnretained(event)
         case .rightMouseDown, .rightMouseUp:
-            if blockRightClicks { return nil }
+            if blockExtraButtons { return nil }
             onClick?(event.location, type == .rightMouseDown)
             return Unmanaged.passUnretained(event)
         case .leftMouseDown, .leftMouseUp:
@@ -367,11 +371,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         get { UserDefaults.standard.bool(forKey: "keepMenuBarHiddenOnLockScreen") }
         set { UserDefaults.standard.set(newValue, forKey: "keepMenuBarHiddenOnLockScreen") }
     }
-    /// Block right-clicks while locked (menu toggle, remembered,
-    /// on by default).
-    var blockRightClicks: Bool {
-        get { UserDefaults.standard.bool(forKey: "blockRightClicks") }
-        set { UserDefaults.standard.set(newValue, forKey: "blockRightClicks") }
+    /// Block right-clicks and extra buttons while locked (menu toggle,
+    /// remembered, on by default).
+    var blockExtraButtons: Bool {
+        get { UserDefaults.standard.bool(forKey: "blockExtraButtons") }
+        set { UserDefaults.standard.set(newValue, forKey: "blockExtraButtons") }
     }
     var statusItem: NSStatusItem!
     /// The display the pointer gets locked to.
@@ -391,9 +395,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         UserDefaults.standard.register(defaults: [
             "keepDockOffLockScreen": true,
             "keepMenuBarHiddenOnLockScreen": true,
-            "blockRightClicks": true,
+            "blockExtraButtons": true,
         ])
-        locker.blockRightClicks = blockRightClicks
+        locker.blockExtraButtons = blockExtraButtons
         locker.avoidBottomEdge = keepDockOff
         locker.avoidTopEdge = keepMenuBarHidden
         lockScreen = defaultLockScreen()
@@ -523,8 +527,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuBar.state = keepMenuBarHidden ? .on : .off
         menu.addItem(menuBar)
 
-        let context = item("Block Right-Click While Locked", #selector(blockRightClicksClicked))
-        context.state = blockRightClicks ? .on : .off
+        let context = item("Block Right-Click and Extra Buttons While Locked", #selector(blockExtraButtonsClicked))
+        context.state = blockExtraButtons ? .on : .off
         menu.addItem(context)
 
         menu.addItem(.separator())
@@ -568,9 +572,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         locker.avoidTopEdge = keepMenuBarHidden
     }
 
-    @objc func blockRightClicksClicked() {
-        blockRightClicks.toggle()
-        locker.blockRightClicks = blockRightClicks
+    @objc func blockExtraButtonsClicked() {
+        blockExtraButtons.toggle()
+        locker.blockExtraButtons = blockExtraButtons
     }
 
     @objc func hidePointerClicked() {
@@ -620,6 +624,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let id = EventHotKeyID(signature: OSType(0x4D4C_434B), id: 1) // 'MLCK'
         RegisterEventHotKey(hotKeyCode, hotKeyModifiers, id, GetApplicationEventTarget(), 0, &ref)
     }
+}
+
+// Only one instance: a second one couldn't get the hotkey, and two locks
+// to different screens would fight over the pointer.
+let me = NSRunningApplication.current
+if NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+    .contains(where: { $0 != me }) {
+    FileHandle.standardError.write("MouseLock is already running.\n".data(using: .utf8)!)
+    exit(0)
 }
 
 let app = NSApplication.shared
