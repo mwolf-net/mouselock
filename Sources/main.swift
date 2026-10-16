@@ -66,11 +66,22 @@ final class Locker {
 
     var isLocked: Bool { lockedDisplay != nil }
 
+    /// Keep the pointer off the lock screen's bottom row: pushing down there
+    /// makes macOS move the Dock to that screen.
+    var avoidBottomEdge = false {
+        didSet { if let lockedDisplay { updateBounds(for: lockedDisplay) } }
+    }
+
+    private func updateBounds(for display: CGDirectDisplayID) {
+        bounds = CGDisplayBounds(display)
+        if avoidBottomEdge { bounds.size.height -= 1 }
+    }
+
     /// Returns false if the event tap couldn't be created (no Accessibility permission).
     func lock(to display: CGDirectDisplayID) -> Bool {
         guard let tap = ensureTap() else { return false }
         lockedDisplay = display
-        bounds = CGDisplayBounds(display)
+        updateBounds(for: display)
         if !bounds.contains(pointerLocation()) {
             movePointer(to: CGPoint(x: bounds.midX, y: bounds.midY))
         }
@@ -89,7 +100,7 @@ final class Locker {
     func refresh() {
         guard let display = lockedDisplay else { return }
         if Display.all().contains(where: { $0.id == display }) {
-            bounds = CGDisplayBounds(display)
+            updateBounds(for: display)
         } else {
             // The locked display went away; don't trap the pointer on nothing.
             unlock()
@@ -302,6 +313,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         get { UserDefaults.standard.bool(forKey: "hidePointerWhileLocked") }
         set { UserDefaults.standard.set(newValue, forKey: "hidePointerWhileLocked") }
     }
+    /// Keep the pointer off the lock screen's bottom row while locked
+    /// (menu toggle, remembered, on by default).
+    var keepDockOff: Bool {
+        get { UserDefaults.standard.bool(forKey: "keepDockOffLockScreen") }
+        set { UserDefaults.standard.set(newValue, forKey: "keepDockOffLockScreen") }
+    }
     var statusItem: NSStatusItem!
     /// The display the pointer gets locked to.
     var lockScreen: CGDirectDisplayID?
@@ -315,6 +332,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
 
+        UserDefaults.standard.register(defaults: ["keepDockOffLockScreen": true])
+        locker.avoidBottomEdge = keepDockOff
         lockScreen = defaultLockScreen()
         locker.onChange = { [weak self] in self?.updateState() }
         locker.onClick = { [weak self] point, isPress in
@@ -434,6 +453,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hide.state = hidePointerWhileLocked ? .on : .off
         menu.addItem(hide)
 
+        let dock = item("Keep Dock Off Lock Screen", #selector(keepDockOffClicked))
+        dock.state = keepDockOff ? .on : .off
+        menu.addItem(dock)
+
         menu.addItem(.separator())
         menu.addItem(item("Quit MouseLock", #selector(quitClicked)))
     }
@@ -453,6 +476,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func toggleClicked() { toggle() }
+
+    @objc func keepDockOffClicked() {
+        keepDockOff.toggle()
+        locker.avoidBottomEdge = keepDockOff
+    }
 
     @objc func hidePointerClicked() {
         hidePointerWhileLocked.toggle()
