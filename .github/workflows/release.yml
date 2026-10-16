@@ -1,0 +1,44 @@
+name: Release
+
+# Push a tag like v1.2.3 (matching CFBundleShortVersionString in
+# Support/Info.plist) to build and publish a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PLIST_VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Support/Info.plist)
+          if [ "$VERSION" != "$PLIST_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match Info.plist version $PLIST_VERSION"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Build app
+        run: scripts/build-app.sh
+
+      - name: Package
+        run: |
+          cd build
+          ditto -c -k --keepParent MouseLock.app "MouseLock-$VERSION.zip"
+          shasum -a 256 "MouseLock-$VERSION.zip" > "MouseLock-$VERSION.zip.sha256"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          scripts/release-notes.sh "$VERSION" > build/notes.md
+          gh release create "$GITHUB_REF_NAME" \
+            "build/MouseLock-$VERSION.zip" "build/MouseLock-$VERSION.zip.sha256" \
+            --title "MouseLock $VERSION" --notes-file build/notes.md

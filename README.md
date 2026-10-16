@@ -33,6 +33,19 @@ macOS 13 (Ventura) or later, on Apple silicon or Intel.
 
 ## Installation
 
+### Download
+
+1. Download `MouseLock-<version>.zip` from the
+   [latest release](https://github.com/mwolf-net/mouselock/releases/latest),
+   unzip it and move `MouseLock.app` to Applications.
+2. MouseLock isn't notarized by Apple (that needs a paid developer account),
+   so macOS blocks it the first time. Open it, click Done, then go to System
+   Settings -> Privacy & Security and click "Open Anyway". Or run:
+
+       xattr -dr com.apple.quarantine /Applications/MouseLock.app
+
+3. Tick "Start at Login" in its menu to have it start automatically.
+
 ### Build from source
 
 You only need the Command Line Tools (`xcode-select --install`), not Xcode.
@@ -119,6 +132,17 @@ terminal app's Accessibility permission rather than its own.
 
 The code is a Swift package with one executable target, one file per
 component, in [`Sources/MouseLock`](Sources/MouseLock).
+
+### Releasing
+
+1. Set the new version in `Support/Info.plist` (`CFBundleShortVersionString`
+   and `CFBundleVersion`) and move the changelog's Unreleased entries under a
+   new version heading.
+2. Commit, then tag and push: `git tag v1.2.3 && git push origin main v1.2.3`.
+
+The Release workflow checks the tag matches `Info.plist`, builds the app and
+publishes a GitHub release with the zip, its SHA-256 checksum, and the
+changelog section as release notes.
 
 ## License
 

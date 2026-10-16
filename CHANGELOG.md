@@ -6,6 +6,8 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-17
+
 First public release.
 
 ### Added
@@ -23,3 +25,6 @@ First public release.
   buttons.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
+
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/mwolf-net/mouselock/releases/tag/v0.1.0
