@@ -193,8 +193,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(awake)
         }
 
-        let lockScreenName = displays.first { $0.id == lockScreen }?.name ?? "Lock Screen"
-        let hide = item("Hide Pointer on \(lockScreenName)", #selector(hidePointerClicked))
+        // Remembered per screen (see hidePointerScreens), without saying so.
+        let hide = item("Hide Pointer When Locked", #selector(hidePointerClicked))
         hide.state = hidesPointer(on: lockScreen) ? .on : .off
         hide.isEnabled = lockScreen != nil
         menu.addItem(hide)

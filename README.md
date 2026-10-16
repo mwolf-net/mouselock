@@ -93,8 +93,6 @@ Click the pointer icon in the menu bar:
   Locking needs at least two screens.
 - **Keep Display Awake**: keeps the display awake without locking (it always
   is while locked). Resets when MouseLock restarts.
-- **Hide Pointer on <screen>**: hides the pointer while locked to the
-  selected lock screen. Remembered for that screen only.
 - The remaining options are described under Features and remembered between
   launches.
 

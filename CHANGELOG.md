@@ -6,10 +6,17 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-17
+
 ### Added
 
 - Homebrew cask: `brew install --cask mwolf-net/tap/mouselock`. The release
   workflow keeps it up to date.
+
+### Changed
+
+- The "Hide Pointer on <screen>" menu item is now "Hide Pointer When
+  Locked". It's still remembered per screen.
 
 ## [0.1.0] - 2026-10-17
 
@@ -31,5 +38,6 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/mwolf-net/mouselock/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mwolf-net/mouselock/releases/tag/v0.1.0
