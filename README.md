@@ -8,6 +8,13 @@ to unlock. That makes the second screen work like a kiosk (say, a web app in a
 full-screen browser for customers or guests) while you keep the laptop screen
 and the keyboard for yourself.
 
+Why not Chrome's `--kiosk` mode? It's great for a dedicated machine, but it
+needs a browser instance of its own, so it can't share a profile (logins,
+local storage) with the normal browser window on your laptop screen. It also
+doesn't stop the mouse from wandering onto your screen, and it only covers
+Chrome. MouseLock works with any app, and you switch it on and off with a
+hotkey instead of restarting the browser.
+
 ## Features
 
 - **Lock the pointer** to one screen with Ctrl+Opt+Cmd+L or from the menu.
@@ -104,14 +111,18 @@ more ways out. Worth checking:
 
 - Keep the app on the lock screen in full screen. Any normal window gives the
   mouse access to Finder, other apps and so on.
-- Turn off Magic Mouse and trackpad gestures that switch Spaces or full-screen
-  apps (System Settings -> Mouse / Trackpad -> More Gestures).
+- Give the lock screen a single Space with just that one app, so there's
+  nothing to switch to. Also turn off Magic Mouse and trackpad gestures that
+  switch Spaces or full-screen apps (System Settings -> Mouse / Trackpad ->
+  More Gestures).
 - Turn off hot corners and Universal Control if you don't use them, and
   consider a Focus mode so notifications don't pop up on the lock screen.
 - In the web app: prevent swipe-back navigation with
-  `overscroll-behavior-x: none`, block `contextmenu`, `dragover`/`drop` and
-  Ctrl+wheel (pinch zoom), and use `navigator.keyboard.lock(['Escape'])` in
-  Chrome so a quick press of Escape doesn't leave full screen.
+  `overscroll-behavior-x: none`, and block `contextmenu`, `dragover`/`drop`
+  and Ctrl+wheel (pinch zoom).
+- Keep the keyboard out of reach: whoever has it can unlock MouseLock, leave
+  full screen and so on. Likewise the Mac's USB ports, since plugging in a
+  keyboard (or anything else) bypasses all of this.
 
 ## How it works
 
@@ -161,6 +172,7 @@ BSD 2-Clause; see [LICENSE](LICENSE). Have fun with it.
 
 ## Acknowledgments
 
-Written by Martin Wolf together with [Claude](https://claude.com/claude-code)
-(Anthropic's Claude Opus 5.5, via Claude Code), which wrote most of the code
-and ran the experiments that tuned the edge handling.
+MouseLock was designed and tested by Martin Wolf. All of the code and this
+README were written by [Claude](https://claude.com/claude-code) (Anthropic's
+Claude Opus 5.5, via Claude Code), including the experiments that tuned the
+edge handling.
