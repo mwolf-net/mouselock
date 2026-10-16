@@ -36,12 +36,20 @@ func pointerLocation() -> CGPoint {
     CGEvent(source: nil)?.location ?? .zero
 }
 
+// Warping the pointer normally makes macOS ignore mouse input for ~0.25s,
+// which swallows the start of a swipe right after a clamp. This call turns
+// that off for the session; Swift marks it unavailable, but the symbol is
+// still exported and works, so declare it by name.
+@_silgen_name("CGSetLocalEventsSuppressionInterval")
+func CGSetLocalEventsSuppressionIntervalCompat(_ seconds: CFTimeInterval) -> CGError
+
 func movePointer(to point: CGPoint) {
     CGWarpMouseCursorPosition(point)
-    // Warping normally suppresses mouse input for ~0.25s; re-associating
-    // the mouse with the cursor cancels that so clamping doesn't feel sticky.
     CGAssociateMouseAndMouseCursorPosition(1)
 }
+
+/// Set MOUSELOCK_DEBUG=1 to log clamping to stderr.
+let debugLogging = ProcessInfo.processInfo.environment["MOUSELOCK_DEBUG"] != nil
 
 // MARK: - Locker
 
@@ -50,6 +58,8 @@ final class Locker {
     private var bounds = CGRect.zero
     private var tap: CFMachPort?
     var onChange: (() -> Void)?
+    /// Called (on the main thread) after each mouse button press or release while locked.
+    var onClick: (() -> Void)?
 
     var isLocked: Bool { lockedDisplay != nil }
 
@@ -88,7 +98,10 @@ final class Locker {
         let prompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
         guard AXIsProcessTrustedWithOptions([prompt: true] as CFDictionary) else { return nil }
 
-        let types: [CGEventType] = [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]
+        let types: [CGEventType] = [
+            .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
+            .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp,
+        ]
         let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
         let callback: CGEventTapCallBack = { _, type, event, refcon in
             let locker = Unmanaged<Locker>.fromOpaque(refcon!).takeUnretainedValue()
@@ -116,15 +129,30 @@ final class Locker {
         }
         guard isLocked else { return Unmanaged.passUnretained(event) }
 
+        switch type {
+        case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp:
+            onClick?()
+            return Unmanaged.passUnretained(event)
+        default:
+            break
+        }
+
+        // Only intervene when the pointer has actually left the display. At
+        // edges with no neighbouring display macOS keeps it in bounds itself.
         let point = event.location
+        guard !bounds.contains(point) else { return Unmanaged.passUnretained(event) }
         let clamped = CGPoint(
             x: min(max(point.x, bounds.minX), bounds.maxX - 1),
             y: min(max(point.y, bounds.minY), bounds.maxY - 1)
         )
-        if clamped != point {
-            event.location = clamped
-            movePointer(to: clamped)
+        if debugLogging {
+            let dx = event.getDoubleValueField(.mouseEventDeltaX)
+            let dy = event.getDoubleValueField(.mouseEventDeltaY)
+            FileHandle.standardError.write(
+                "clamp \(point) -> \(clamped) delta (\(dx), \(dy)) bounds \(bounds)\n".data(using: .utf8)!)
         }
+        event.location = clamped
+        movePointer(to: clamped)
         return Unmanaged.passUnretained(event)
     }
 }
@@ -188,6 +216,14 @@ final class PointerHider {
         }
         hidden = hide
     }
+
+    /// Other apps can make the pointer visible again (e.g. when a click
+    /// activates them or changes the cursor shape); hide it once more.
+    func reassert() {
+        guard hidden else { return }
+        CGDisplayShowCursor(kCGNullDirectDisplay)
+        CGDisplayHideCursor(kCGNullDirectDisplay)
+    }
 }
 
 // MARK: - App
@@ -207,12 +243,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var lastTarget: CGDirectDisplayID?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        _ = CGSetLocalEventsSuppressionIntervalCompat(0)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
 
         locker.onChange = { [weak self] in self?.updateState() }
+        locker.onClick = { [weak self] in self?.reassertHiddenPointer() }
         updateState()
         registerHotKey()
 
@@ -220,6 +258,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil, queue: .main
         ) { [weak self] _ in self?.locker.refresh() }
+
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in self?.reassertHiddenPointer() }
+    }
+
+    /// Re-hide right away and again shortly after, once the clicked app has
+    /// finished reacting (activating, changing the cursor shape).
+    func reassertHiddenPointer() {
+        for delay in [0.0, 0.1, 0.3] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.pointerHider.reassert()
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

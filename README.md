@@ -32,3 +32,10 @@ run `tccutil reset Accessibility com.martinwolf.mouselock`) and grant it
 again.
 
 To start it at login, add it under System Settings -> General -> Login Items.
+
+## Debugging
+
+Run it from a terminal with `MOUSELOCK_DEBUG=1` to log every time the pointer
+is pushed back onto the locked display:
+
+    MOUSELOCK_DEBUG=1 build/MouseLock.app/Contents/MacOS/MouseLock
