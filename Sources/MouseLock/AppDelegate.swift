@@ -16,10 +16,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var keepAwakeManually = false
     let pointerHider = PointerHider()
     let clickMarker = ClickMarker()
-    /// Touch-screen mode: hide the pointer while locked (menu toggle, remembered).
-    var hidePointerWhileLocked: Bool {
-        get { UserDefaults.standard.bool(forKey: "hidePointerWhileLocked") }
-        set { UserDefaults.standard.set(newValue, forKey: "hidePointerWhileLocked") }
+    /// Touch-screen mode: the screens (by UUID) on which the pointer is hidden
+    /// while locked. Per screen, so it's off for any screen not seen before.
+    var hidePointerScreens: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: "hidePointerScreens") ?? []) }
+        set { UserDefaults.standard.set(newValue.sorted(), forKey: "hidePointerScreens") }
+    }
+
+    func hidesPointer(on display: CGDirectDisplayID?) -> Bool {
+        guard let display, let uuid = displayUUID(display) else { return false }
+        return hidePointerScreens.contains(uuid)
     }
     /// Keep the pointer off the lock screen's bottom row while locked
     /// (menu toggle, remembered, on by default).
@@ -112,7 +118,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func updateState() {
         stayAwake.set(locker.isLocked || keepAwakeManually)
-        pointerHider.set(locker.isLocked && hidePointerWhileLocked)
+        pointerHider.set(hidesPointer(on: locker.lockedDisplay))
 
         let symbol = locker.isLocked ? "lock.fill"
             : stayAwake.isActive ? "cup.and.saucer.fill"
@@ -187,8 +193,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(awake)
         }
 
-        let hide = item("Hide Pointer While Locked", #selector(hidePointerClicked))
-        hide.state = hidePointerWhileLocked ? .on : .off
+        let lockScreenName = displays.first { $0.id == lockScreen }?.name ?? "Lock Screen"
+        let hide = item("Hide Pointer on \(lockScreenName)", #selector(hidePointerClicked))
+        hide.state = hidesPointer(on: lockScreen) ? .on : .off
+        hide.isEnabled = lockScreen != nil
         menu.addItem(hide)
 
         let dock = item("Keep Dock Off Lock Screen", #selector(keepDockOffClicked))
@@ -253,7 +261,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func hidePointerClicked() {
-        hidePointerWhileLocked.toggle()
+        guard let lockScreen, let uuid = displayUUID(lockScreen) else { return }
+        hidePointerScreens.formSymmetricDifference([uuid])
         updateState()
     }
 

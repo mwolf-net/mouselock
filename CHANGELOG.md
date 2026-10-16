@@ -18,7 +18,8 @@ First public release.
 - Display kept awake while locked (no screen saver, display sleep or idle
   password lock); "Keep Display Awake" toggle for use without the lock.
 - Options for kiosk-style use: hide the pointer (with a crosshair shown on
-  clicks), keep the Dock and a hidden menu bar off the lock screen, and block
-  right-clicks and extra mouse buttons.
+  clicks; set per screen, for touch screens), keep the Dock and a hidden
+  menu bar off the lock screen, and block right-clicks and extra mouse
+  buttons.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.

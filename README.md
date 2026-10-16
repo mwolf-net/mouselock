@@ -21,7 +21,7 @@ and the keyboard for yourself.
   - Keep a hidden menu bar (full-screen apps, or auto-hide) from sliding down.
   - Block right-clicks and extra mouse buttons (middle, back/forward).
   - Hide the pointer, showing a brief crosshair where clicks land. Meant for
-    touch screens.
+    touch screens, so it's set per screen and starts off for a new one.
 - **Sensible default lock screen:** the external display on a laptop, or the
   screen the pointer isn't on when MouseLock starts. A screen picked in the
   menu is remembered.
@@ -64,6 +64,8 @@ Click the pointer icon in the menu bar:
   Locking needs at least two screens.
 - **Keep Display Awake**: keeps the display awake without locking (it always
   is while locked). Resets when MouseLock restarts.
+- **Hide Pointer on <screen>**: hides the pointer while locked to the
+  selected lock screen. Remembered for that screen only.
 - The remaining options are described under Features and remembered between
   launches.
 
