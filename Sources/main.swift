@@ -66,6 +66,10 @@ final class Locker {
 
     var isLocked: Bool { lockedDisplay != nil }
 
+    /// Where the pointer was before locking (if on another display), so
+    /// unlocking can put it back.
+    private var returnPoint: (point: CGPoint, display: CGDirectDisplayID)?
+
     /// Keep the pointer off the lock screen's bottom row: pushing down there
     /// makes macOS move the Dock to that screen.
     var avoidBottomEdge = false {
@@ -90,6 +94,12 @@ final class Locker {
     /// Returns false if the event tap couldn't be created (no Accessibility permission).
     func lock(to display: CGDirectDisplayID) -> Bool {
         guard let tap = ensureTap() else { return false }
+        // Relocking to another screen keeps the original return point.
+        if !isLocked {
+            let point = pointerLocation()
+            returnPoint = displayContaining(point)
+                .flatMap { $0 == display ? nil : (point, $0) }
+        }
         lockedDisplay = display
         updateBounds(for: display)
         if !bounds.contains(pointerLocation()) {
@@ -103,7 +113,21 @@ final class Locker {
     func unlock() {
         lockedDisplay = nil
         if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
+        // Put the pointer back where it was, or at least on that screen
+        // (e.g. if its resolution changed); skip it if the screen is gone.
+        if let (point, display) = returnPoint, Display.all().contains(where: { $0.id == display }) {
+            let screen = CGDisplayBounds(display)
+            movePointer(to: screen.contains(point) ? point : CGPoint(x: screen.midX, y: screen.midY))
+        }
+        returnPoint = nil
         onChange?()
+    }
+
+    private func displayContaining(_ point: CGPoint) -> CGDirectDisplayID? {
+        var display = CGDirectDisplayID(0)
+        var count = UInt32(0)
+        guard CGGetDisplaysWithPoint(point, 1, &display, &count) == .success, count > 0 else { return nil }
+        return display
     }
 
     /// Called when the display configuration changes.

@@ -7,7 +7,9 @@ A small menu bar app that keeps the mouse pointer on one display.
   with no built-in display, it's the one the pointer isn't on when MouseLock
   starts.
 - "Lock Pointer" / "Unlock Pointer" (or Ctrl+Opt+Cmd+L) toggles the lock.
-  Locking moves the pointer onto the lock screen and keeps it there.
+  Locking moves the pointer onto the lock screen and keeps it there;
+  unlocking puts it back where it was (or on that screen, if the exact spot
+  no longer exists).
 - Locking needs at least two screens. If the locked display is disconnected,
   the lock is released.
 - While locked, the display is kept awake: no screen saver, no display
