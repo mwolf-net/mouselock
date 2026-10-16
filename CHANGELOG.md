@@ -6,6 +6,11 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Homebrew cask: `brew install --cask mwolf-net/tap/mouselock`. The release
+  workflow keeps it up to date.
+
 ## [0.1.0] - 2026-10-17
 
 First public release.

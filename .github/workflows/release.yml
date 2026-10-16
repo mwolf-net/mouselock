@@ -42,3 +42,28 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             "build/MouseLock-$VERSION.zip" "build/MouseLock-$VERSION.zip.sha256" \
             --title "MouseLock $VERSION" --notes-file build/notes.md
+
+      - name: Update Homebrew cask
+        env:
+          DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "No HOMEBREW_TAP_DEPLOY_KEY secret; skipping."
+            exit 0
+          fi
+          SHA=$(cut -d' ' -f1 "build/MouseLock-$VERSION.zip.sha256")
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/tap_key
+          chmod 600 ~/.ssh/tap_key
+          echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > ~/.ssh/tap_known_hosts
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/tap_key -o UserKnownHostsFile=~/.ssh/tap_known_hosts -o IdentitiesOnly=yes"
+          git clone --depth 1 git@github.com:mwolf-net/homebrew-tap.git tap
+          cd tap
+          sed -E -i '' \
+            -e "s/^  version \".*\"/  version \"$VERSION\"/" \
+            -e "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" \
+            Casks/mouselock.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "mouselock $VERSION"
+          git push

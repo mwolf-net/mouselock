@@ -33,6 +33,15 @@ macOS 13 (Ventura) or later, on Apple silicon or Intel.
 
 ## Installation
 
+### Homebrew
+
+    brew install --cask mwolf-net/tap/mouselock
+
+MouseLock isn't notarized by Apple (that needs a paid developer account), so
+macOS blocks its first launch: open it once, click Done, then go to System
+Settings -> Privacy & Security and click "Open Anyway". Homebrew keeps that
+approval when upgrading (`brew upgrade --cask mouselock`).
+
 ### Download
 
 1. Download `MouseLock-<version>.zip` from the
@@ -142,7 +151,9 @@ component, in [`Sources/MouseLock`](Sources/MouseLock).
 
 The Release workflow checks the tag matches `Info.plist`, builds the app and
 publishes a GitHub release with the zip, its SHA-256 checksum, and the
-changelog section as release notes.
+changelog section as release notes. It then updates the cask in
+[mwolf-net/homebrew-tap](https://github.com/mwolf-net/homebrew-tap), using
+a deploy key stored as the `HOMEBREW_TAP_DEPLOY_KEY` secret.
 
 ## License
 
