@@ -384,6 +384,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         let menu = NSMenu()
         menu.delegate = self
+        // Otherwise AppKit enables every item with a target, ignoring isEnabled.
+        menu.autoenablesItems = false
         statusItem.menu = menu
 
         UserDefaults.standard.register(defaults: [
@@ -527,6 +529,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(item("Quit MouseLock", #selector(quitClicked)))
+
+        // While locked the pointer is on the lock screen, so any menu click
+        // comes from there. Refuse everything (Quit would release the lock,
+        // options could undo it): only the keyboard shortcut unlocks.
+        if locker.isLocked {
+            for item in menu.items { item.isEnabled = false }
+            let note = NSMenuItem(title: "Locked: unlock with the keyboard shortcut", action: nil, keyEquivalent: "")
+            note.isEnabled = false
+            menu.insertItem(note, at: 0)
+            menu.insertItem(.separator(), at: 1)
+        }
     }
 
     private func item(_ title: String, _ action: Selector) -> NSMenuItem {

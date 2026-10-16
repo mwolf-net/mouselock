@@ -10,6 +10,8 @@ A small menu bar app that keeps the mouse pointer on one display.
   Locking moves the pointer onto the lock screen and keeps it there;
   unlocking puts it back where it was (or on that screen, if the exact spot
   no longer exists).
+- While locked, the menu is greyed out (including Quit), so the mouse alone
+  can't release the lock; only the keyboard shortcut unlocks.
 - Locking needs at least two screens. If the locked display is disconnected,
   the lock is released.
 - While locked, the display is kept awake: no screen saver, no display
