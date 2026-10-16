@@ -8,6 +8,7 @@
 import AppKit
 import Carbon.HIToolbox
 import IOKit.pwr_mgt
+import ServiceManagement
 
 // Hotkey that toggles the lock: Ctrl+Option+Cmd+L.
 let hotKeyCode = UInt32(kVK_ANSI_L)
@@ -30,6 +31,12 @@ struct Display {
             return Display(id: number.uint32Value, name: screen.localizedName)
         }
     }
+}
+
+/// A display's UUID, which stays the same across reboots and reconnects.
+func displayUUID(_ display: CGDirectDisplayID) -> String? {
+    guard let uuid = CGDisplayCreateUUIDFromDisplayID(display)?.takeRetainedValue() else { return nil }
+    return CFUUIDCreateString(nil, uuid) as String
 }
 
 func pointerLocation() -> CGPoint {
@@ -380,8 +387,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var statusItem: NSStatusItem!
     /// The display the pointer gets locked to.
     var lockScreen: CGDirectDisplayID?
-    /// Whether lockScreen was picked in the menu (otherwise it's the default).
-    var lockScreenChosenByUser = false
+    /// The lock screen picked in the menu, by the display's stable UUID
+    /// (display IDs can change across reboots and reconnects). Remembered.
+    var chosenLockScreenUUID: String? {
+        get { UserDefaults.standard.string(forKey: "lockScreenUUID") }
+        set { UserDefaults.standard.set(newValue, forKey: "lockScreenUUID") }
+    }
+
+    /// The chosen lock screen, if it's connected.
+    func chosenLockScreen() -> CGDirectDisplayID? {
+        guard let uuid = chosenLockScreenUUID else { return nil }
+        return Display.all().first { displayUUID($0.id) == uuid }?.id
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         _ = CGSetLocalEventsSuppressionIntervalCompat(0)
@@ -400,7 +417,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         locker.blockExtraButtons = blockExtraButtons
         locker.avoidBottomEdge = keepDockOff
         locker.avoidTopEdge = keepMenuBarHidden
-        lockScreen = defaultLockScreen()
+        lockScreen = chosenLockScreen() ?? defaultLockScreen()
         locker.onChange = { [weak self] in self?.updateState() }
         locker.onClick = { [weak self] point, isPress in
             guard let self else { return }
@@ -461,17 +478,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return choice?.id
     }
 
-    /// After a display change: fall back to the default if the lock screen is
+    /// After a display change: use the chosen lock screen if it's (back)
+    /// connected. Otherwise fall back to the default if the lock screen is
     /// gone, or if it was only the built-in one by default and an external
     /// display has appeared.
     func revalidateLockScreen() {
-        let displays = Display.all()
-        guard let current = displays.first(where: { $0.id == lockScreen }) else {
-            lockScreen = defaultLockScreen()
-            lockScreenChosenByUser = false
+        if let chosen = chosenLockScreen() {
+            lockScreen = chosen
             return
         }
-        if !lockScreenChosenByUser && current.isBuiltin {
+        let current = Display.all().first { $0.id == lockScreen }
+        if current?.isBuiltin ?? true {
             lockScreen = defaultLockScreen()
         }
     }
@@ -532,6 +549,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(context)
 
         menu.addItem(.separator())
+        let login = item("Start at Login", #selector(startAtLoginClicked))
+        login.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        menu.addItem(login)
         menu.addItem(item("Quit MouseLock", #selector(quitClicked)))
 
         // While locked the pointer is on the lock screen, so any menu click
@@ -555,7 +575,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func lockScreenClicked(_ sender: NSMenuItem) {
         guard let number = sender.representedObject as? NSNumber else { return }
         lockScreen = number.uint32Value
-        lockScreenChosenByUser = true
+        chosenLockScreenUUID = displayUUID(number.uint32Value)
         // Switching screens while locked moves the lock along.
         if locker.isLocked { lock() }
     }
@@ -585,6 +605,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func keepAwakeClicked() {
         keepAwakeManually.toggle()
         updateState()
+    }
+
+    @objc func startAtLoginClicked() {
+        do {
+            if SMAppService.mainApp.status == .enabled {
+                try SMAppService.mainApp.unregister()
+            } else {
+                try SMAppService.mainApp.register()
+            }
+        } catch {
+            NSSound.beep()
+        }
     }
 
     @objc func quitClicked() { NSApp.terminate(nil) }

@@ -5,7 +5,8 @@ A small menu bar app that keeps the mouse pointer on one display.
 - The menu bar menu has a "Lock Screen" section for choosing the display the
   pointer gets locked to. By default that's the external display on a laptop;
   with no built-in display, it's the one the pointer isn't on when MouseLock
-  starts.
+  starts. A screen picked in the menu is remembered (also across reboots) and
+  used whenever it's connected.
 - "Lock Pointer" / "Unlock Pointer" (or Ctrl+Opt+Cmd+L) toggles the lock.
   Locking moves the pointer onto the lock screen and keeps it there;
   unlocking puts it back where it was (or on that screen, if the exact spot
@@ -36,8 +37,8 @@ A small menu bar app that keeps the mouse pointer on one display.
 
 Needs only the Command Line Tools (`xcode-select --install`), not Xcode.
 
-    ./build.sh
-    cp -R build/MouseLock.app ~/Applications/   # optional
+    ./build.sh             # builds build/MouseLock.app
+    ./build.sh --install   # also installs it to /Applications and restarts it
 
 ## Permissions
 
@@ -49,7 +50,8 @@ rebuilding, remove the old MouseLock entry from the Accessibility list (or
 run `tccutil reset Accessibility com.martinwolf.mouselock`) and grant it
 again.
 
-To start it at login, add it under System Settings -> General -> Login Items.
+To start it at login, tick "Start at Login" in its menu (it then also shows
+under System Settings -> General -> Login Items).
 
 ## Debugging
 
