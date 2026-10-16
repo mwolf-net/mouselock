@@ -22,6 +22,9 @@ A small menu bar app that keeps the mouse pointer on one display.
   keeps the pointer off the top few rows, so a hidden menu bar (in full-screen
   apps, or with menu bar auto-hide) doesn't slide down. A menu bar that is
   always shown can still be clicked.
+- "Block Right-Click While Locked" (on by default, remembered) drops
+  right-clicks while locked. Ctrl+click still opens context menus, since
+  whoever has the keyboard is in control anyway.
 - "Hide Pointer While Locked" (remembered between launches) hides the pointer
   while locked, for touch screens. It relies on an undocumented macOS setting,
   so a future macOS may ignore it and leave the pointer visible.

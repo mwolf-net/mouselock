@@ -66,6 +66,10 @@ final class Locker {
 
     var isLocked: Bool { lockedDisplay != nil }
 
+    /// Drop right-clicks while locked, so the mouse alone can't open context
+    /// menus. Ctrl+click still works: whoever has the keyboard is in charge.
+    var blockRightClicks = false
+
     /// Where the pointer was before locking (if on another display), so
     /// unlocking can put it back.
     private var returnPoint: (point: CGPoint, display: CGDirectDisplayID)?
@@ -178,8 +182,12 @@ final class Locker {
         guard isLocked else { return Unmanaged.passUnretained(event) }
 
         switch type {
-        case .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp:
-            onClick?(event.location, type == .leftMouseDown || type == .rightMouseDown)
+        case .rightMouseDown, .rightMouseUp:
+            if blockRightClicks { return nil }
+            onClick?(event.location, type == .rightMouseDown)
+            return Unmanaged.passUnretained(event)
+        case .leftMouseDown, .leftMouseUp:
+            onClick?(event.location, type == .leftMouseDown)
             return Unmanaged.passUnretained(event)
         default:
             break
@@ -359,6 +367,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         get { UserDefaults.standard.bool(forKey: "keepMenuBarHiddenOnLockScreen") }
         set { UserDefaults.standard.set(newValue, forKey: "keepMenuBarHiddenOnLockScreen") }
     }
+    /// Block right-clicks while locked (menu toggle, remembered,
+    /// on by default).
+    var blockRightClicks: Bool {
+        get { UserDefaults.standard.bool(forKey: "blockRightClicks") }
+        set { UserDefaults.standard.set(newValue, forKey: "blockRightClicks") }
+    }
     var statusItem: NSStatusItem!
     /// The display the pointer gets locked to.
     var lockScreen: CGDirectDisplayID?
@@ -375,7 +389,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         UserDefaults.standard.register(defaults: [
             "keepDockOffLockScreen": true,
             "keepMenuBarHiddenOnLockScreen": true,
+            "blockRightClicks": true,
         ])
+        locker.blockRightClicks = blockRightClicks
         locker.avoidBottomEdge = keepDockOff
         locker.avoidTopEdge = keepMenuBarHidden
         lockScreen = defaultLockScreen()
@@ -505,6 +521,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuBar.state = keepMenuBarHidden ? .on : .off
         menu.addItem(menuBar)
 
+        let context = item("Block Right-Click While Locked", #selector(blockRightClicksClicked))
+        context.state = blockRightClicks ? .on : .off
+        menu.addItem(context)
+
         menu.addItem(.separator())
         menu.addItem(item("Quit MouseLock", #selector(quitClicked)))
     }
@@ -533,6 +553,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func keepMenuBarHiddenClicked() {
         keepMenuBarHidden.toggle()
         locker.avoidTopEdge = keepMenuBarHidden
+    }
+
+    @objc func blockRightClicksClicked() {
+        blockRightClicks.toggle()
+        locker.blockRightClicks = blockRightClicks
     }
 
     @objc func hidePointerClicked() {
