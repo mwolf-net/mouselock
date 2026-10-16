@@ -12,7 +12,9 @@ import IOKit.pwr_mgt
 // Hotkey that toggles the lock: Ctrl+Option+Cmd+L.
 let hotKeyCode = UInt32(kVK_ANSI_L)
 let hotKeyModifiers = UInt32(controlKey | optionKey | cmdKey)
-let hotKeyLabel = "Ctrl+Opt+Cmd+L"
+// The same shortcut, for display in the menu.
+let hotKeyEquivalent = "l"
+let hotKeyEquivalentModifiers: NSEvent.ModifierFlags = [.control, .option, .command]
 
 // MARK: - Displays
 
@@ -301,7 +303,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         set { UserDefaults.standard.set(newValue, forKey: "hidePointerWhileLocked") }
     }
     var statusItem: NSStatusItem!
-    var lastTarget: CGDirectDisplayID?
+    /// The display the pointer gets locked to.
+    var lockScreen: CGDirectDisplayID?
+    /// Whether lockScreen was picked in the menu (otherwise it's the default).
+    var lockScreenChosenByUser = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         _ = CGSetLocalEventsSuppressionIntervalCompat(0)
@@ -310,6 +315,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
 
+        lockScreen = defaultLockScreen()
         locker.onChange = { [weak self] in self?.updateState() }
         locker.onClick = { [weak self] point, isPress in
             guard let self else { return }
@@ -322,7 +328,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil, queue: .main
-        ) { [weak self] _ in self?.locker.refresh() }
+        ) { [weak self] _ in
+            self?.locker.refresh()
+            self?.revalidateLockScreen()
+        }
 
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
@@ -356,24 +365,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.button?.image = image
     }
 
+    /// The external display if there is a built-in one (a laptop). Otherwise,
+    /// with no clear external display, the one the pointer isn't on right now.
+    func defaultLockScreen() -> CGDirectDisplayID? {
+        let displays = Display.all()
+        let candidates = displays.contains { $0.isBuiltin } ? displays.filter { !$0.isBuiltin } : displays
+        let pointer = pointerLocation()
+        let choice = candidates.first { !CGDisplayBounds($0.id).contains(pointer) }
+            ?? candidates.first ?? displays.first
+        return choice?.id
+    }
+
+    /// After a display change: fall back to the default if the lock screen is
+    /// gone, or if it was only the built-in one by default and an external
+    /// display has appeared.
+    func revalidateLockScreen() {
+        let displays = Display.all()
+        guard let current = displays.first(where: { $0.id == lockScreen }) else {
+            lockScreen = defaultLockScreen()
+            lockScreenChosenByUser = false
+            return
+        }
+        if !lockScreenChosenByUser && current.isBuiltin {
+            lockScreen = defaultLockScreen()
+        }
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         let displays = Display.all()
 
-        if let locked = locker.lockedDisplay {
-            let name = displays.first { $0.id == locked }?.name ?? "display"
-            let status = NSMenuItem(title: "Locked to \(name)", action: nil, keyEquivalent: "")
-            status.isEnabled = false
-            menu.addItem(status)
-            menu.addItem(item("Unlock", #selector(unlockClicked)))
-        } else {
-            for display in displays {
-                let title = "Lock to \(display.name)" + (display.isBuiltin ? " (built-in)" : "")
-                let entry = item(title, #selector(lockClicked(_:)))
-                entry.representedObject = NSNumber(value: display.id)
-                menu.addItem(entry)
-            }
+        let header = NSMenuItem(title: "Lock Screen", action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        menu.addItem(header)
+        for display in displays {
+            let title = display.name + (display.isBuiltin ? " (built-in)" : "")
+            let entry = item(title, #selector(lockScreenClicked(_:)))
+            entry.representedObject = NSNumber(value: display.id)
+            entry.state = display.id == lockScreen ? .on : .off
+            entry.indentationLevel = 1
+            entry.isEnabled = canLock
+            menu.addItem(entry)
         }
+
+        menu.addItem(.separator())
+        let toggleTitle = locker.isLocked ? "Unlock Pointer"
+            : canLock ? "Lock Pointer"
+            : "Lock Pointer (needs a second screen)"
+        let toggleItem = item(toggleTitle, #selector(toggleClicked))
+        toggleItem.keyEquivalent = hotKeyEquivalent
+        toggleItem.keyEquivalentModifierMask = hotKeyEquivalentModifiers
+        toggleItem.isEnabled = locker.isLocked || canLock
+        menu.addItem(toggleItem)
 
         menu.addItem(.separator())
         if locker.isLocked {
@@ -392,9 +435,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(hide)
 
         menu.addItem(.separator())
-        let hint = NSMenuItem(title: "Toggle: \(hotKeyLabel)", action: nil, keyEquivalent: "")
-        hint.isEnabled = false
-        menu.addItem(hint)
         menu.addItem(item("Quit MouseLock", #selector(quitClicked)))
     }
 
@@ -404,12 +444,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return item
     }
 
-    @objc func lockClicked(_ sender: NSMenuItem) {
+    @objc func lockScreenClicked(_ sender: NSMenuItem) {
         guard let number = sender.representedObject as? NSNumber else { return }
-        lock(to: number.uint32Value)
+        lockScreen = number.uint32Value
+        lockScreenChosenByUser = true
+        // Switching screens while locked moves the lock along.
+        if locker.isLocked { lock() }
     }
 
-    @objc func unlockClicked() { locker.unlock() }
+    @objc func toggleClicked() { toggle() }
 
     @objc func hidePointerClicked() {
         hidePointerWhileLocked.toggle()
@@ -423,29 +466,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func quitClicked() { NSApp.terminate(nil) }
 
-    /// Hotkey: unlock if locked; otherwise lock to the last-used display,
-    /// falling back to the first external display.
+    /// Hotkey and menu: unlock if locked, otherwise lock to the lock screen.
     func toggle() {
         if locker.isLocked {
             locker.unlock()
-            return
+        } else {
+            lock()
         }
-        let displays = Display.all()
-        let target = displays.first { $0.id == lastTarget }
-            ?? displays.first { !$0.isBuiltin }
-        guard let target else {
-            NSSound.beep()
-            return
-        }
-        lock(to: target.id)
     }
 
-    private func lock(to display: CGDirectDisplayID) {
-        if locker.lock(to: display) {
-            lastTarget = display
-        } else {
-            // macOS has shown (or will show) the Accessibility prompt.
+    /// Locking to the only screen would do nothing, so it needs two.
+    /// (An existing lock stays on if a screen goes away, e.g. with the lid
+    /// closed, as long as the lock screen itself is still there.)
+    var canLock: Bool { Display.all().count > 1 }
+
+    private func lock() {
+        guard canLock, let lockScreen, locker.lock(to: lockScreen) else {
+            // Only one screen, or no Accessibility permission yet (macOS has
+            // shown, or will show, the prompt).
             NSSound.beep()
+            return
         }
     }
 

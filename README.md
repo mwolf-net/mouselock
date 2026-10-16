@@ -2,11 +2,14 @@
 
 A small menu bar app that keeps the mouse pointer on one display.
 
-- Menu bar icon -> "Lock to <display>": moves the pointer onto that display
-  and keeps it there.
-- Ctrl+Opt+Cmd+L toggles the lock. When locking, it uses the display you
-  locked to last, or else the first external display.
-- If the locked display is disconnected, the lock is released.
+- The menu bar menu has a "Lock Screen" section for choosing the display the
+  pointer gets locked to. By default that's the external display on a laptop;
+  with no built-in display, it's the one the pointer isn't on when MouseLock
+  starts.
+- "Lock Pointer" / "Unlock Pointer" (or Ctrl+Opt+Cmd+L) toggles the lock.
+  Locking moves the pointer onto the lock screen and keeps it there.
+- Locking needs at least two screens. If the locked display is disconnected,
+  the lock is released.
 - While locked, the display is kept awake: no screen saver, no display
   sleep, and so no password lock from inactivity. "Keep Display Awake" in the
   menu does the same while unlocked.
