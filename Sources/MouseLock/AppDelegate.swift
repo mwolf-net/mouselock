@@ -110,6 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         updateState()
         registerHotKey()
+        checkAccessibilityPermission()
         smartTouch.isTouchEvent = { [touchInput] event in touchInput.isTouch(event) }
         // Smart touch hides the pointer while it's on the touch screen.
         smartTouch.onPointerOnScreenChanged = { [weak self] in self?.updateState() }
@@ -173,7 +174,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // apart from the mouse, which works for USB touch screens.
         smartTouch.keepMouseOff = TouchInput.touchScreenConnected()
 
-        let symbol = locker.isLocked ? "lock.fill"
+        let symbol = !AXIsProcessTrusted() ? "exclamationmark.triangle"
+            : locker.isLocked ? "lock.fill"
             : stayAwake.isActive ? "cup.and.saucer.fill"
             : "cursorarrow"
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "MouseLock")
@@ -210,6 +212,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+        if !AXIsProcessTrusted() {
+            let permission = item("Accessibility Permission Needed\u{2026}", #selector(accessibilityClicked))
+            permission.toolTip = "MouseLock needs Accessibility permission to see and adjust mouse and touch input; without it, locking and the touch screen options don't work. Opens System Settings."
+            menu.addItem(permission)
+            menu.addItem(.separator())
+        }
         let displays = Display.all()
 
         let header = NSMenuItem(title: "Lock Screen", action: nil, keyEquivalent: "")
@@ -401,6 +409,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let aboutWindow = AboutWindow()
 
     @objc func aboutClicked() { aboutWindow.show() }
+
+    // MARK: Accessibility permission
+
+    private var permissionTimer: Timer?
+
+    /// Without Accessibility permission none of the event taps work. Each new
+    /// (ad-hoc signed) build counts as a new app to macOS, and an entry left
+    /// over from the previous build looks enabled but doesn't apply. So on
+    /// the first launch of a build without permission, remove that stale
+    /// entry and ask again; then watch for the permission being granted.
+    private func checkAccessibilityPermission() {
+        guard !AXIsProcessTrusted() else { return }
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
+        if UserDefaults.standard.string(forKey: "permissionResetForBuild") != build,
+           let bundleID = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.set(build, forKey: "permissionResetForBuild")
+            let reset = Process()
+            reset.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+            reset.arguments = ["reset", "Accessibility", bundleID]
+            try? reset.run()
+            reset.waitUntilExit()
+        }
+        requestAccessibilityPermission()
+        permissionTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] timer in
+            guard AXIsProcessTrusted() else { return }
+            timer.invalidate()
+            self?.permissionTimer = nil
+            // Now the event taps can be created.
+            self?.updateState()
+        }
+    }
+
+    private func requestAccessibilityPermission() {
+        let prompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+        _ = AXIsProcessTrustedWithOptions([prompt: true] as CFDictionary)
+    }
+
+    @objc func accessibilityClicked() {
+        requestAccessibilityPermission()
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+        if permissionTimer == nil { checkAccessibilityPermission() }
+    }
 
     @objc func quitClicked() { NSApp.terminate(nil) }
 

@@ -99,14 +99,18 @@ Tick "Start at Login" in its menu to have it start automatically.
 
 ### Accessibility permission
 
-MouseLock needs Accessibility permission to see and adjust mouse movement.
-macOS asks the first time you lock; allow it under System Settings -> Privacy
-& Security -> Accessibility, then lock again.
+MouseLock needs Accessibility permission to see and adjust mouse and touch
+input. When it's missing, macOS asks at startup; allow MouseLock under System
+Settings -> Privacy & Security -> Accessibility. MouseLock picks the
+permission up by itself, no restart needed. Until then, its menu bar icon
+shows a warning sign and the menu has an "Accessibility Permission Needed"
+item that opens the right settings page.
 
 The app is signed ad hoc (not with an Apple developer certificate), so macOS
-treats each new build as a new app: after updating, remove the old MouseLock
-entry from that list (or run
-`tccutil reset Accessibility net.mwolf.mouselock`) and allow it again.
+treats each new build as a new app, and the entry left over from the
+previous version no longer applies. After an update, MouseLock removes that
+stale entry itself and asks again, so you only need to allow it. (Manually:
+`tccutil reset Accessibility net.mwolf.mouselock`.)
 
 ## Usage
 
