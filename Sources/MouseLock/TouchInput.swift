@@ -12,6 +12,9 @@ import IOKit
 ///   the screen's rotation is applied too.
 /// - Drag to scroll: a one-finger drag scrolls instead of selecting text. A
 ///   tap still clicks, and pressing briefly before dragging still drags.
+/// - Two-finger gestures (with remapping on): scrolling goes where the
+///   fingers are, and pinch (sent as zoom key presses) is ignored.
+/// - Blocking the touch screen's right-click (its two-finger tap).
 ///
 /// Touches are recognised by the device that sent them: a touch screen
 /// reports as a mouse, but its USB device also has a HID "Touch Screen"
@@ -29,10 +32,16 @@ final class TouchInput {
     var dragToScroll = false {
         didSet { updateTap() }
     }
+    /// Ignore right-clicks from the touch screen (its two-finger tap).
+    var blockRightClick = false {
+        didSet { updateTap() }
+    }
     /// Called (on the main thread) when a scrolling drag ends.
     var onScrollEnded: (() -> Void)?
 
     private var tap: CFMachPort?
+    /// Where the last touch was, to send two-finger scrolling there.
+    private var lastTouchPoint: CGPoint?
     /// Whether each sending device (by registry entry ID) is a touch screen.
     private var isTouchSender: [Int64: Bool] = [:]
     /// Marks the events we post ourselves, so our tap lets them through.
@@ -56,7 +65,7 @@ final class TouchInput {
     private static let holdDelay: TimeInterval = 0.4
 
     private func updateTap() {
-        let active = touchScreen != nil && (remap || dragToScroll)
+        let active = touchScreen != nil && (remap || dragToScroll || blockRightClick)
         if !active {
             if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
             gesture = .none
@@ -73,6 +82,7 @@ final class TouchInput {
         let types: [CGEventType] = [
             .mouseMoved, .leftMouseDown, .leftMouseUp, .leftMouseDragged,
             .rightMouseDown, .rightMouseUp, .rightMouseDragged,
+            .scrollWheel, .keyDown, .keyUp, .flagsChanged,
         ]
         let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
         let callback: CGEventTapCallBack = { _, type, event, refcon in
@@ -107,8 +117,80 @@ final class TouchInput {
         guard let touchScreen, marker != Self.replayMarker, marker != SmartTouch.replayMarker,
               isTouchScreen(sender: event.getIntegerValueField(senderIDField)) else { return pass }
 
-        if remap { remapToTouchScreen(event, touchScreen: touchScreen) }
+        if remap {
+            if let handled = adjustTwoFingerGesture(type: type, event: event, touchScreen: touchScreen) {
+                return handled
+            }
+            remapToTouchScreen(event, touchScreen: touchScreen)
+        }
+        switch type {
+        case .rightMouseDown, .rightMouseUp, .rightMouseDragged:
+            // The touch screen's two-finger tap.
+            return blockRightClick ? nil : pass
+        case .mouseMoved, .leftMouseDown, .leftMouseDragged:
+            lastTouchPoint = event.location
+        default:
+            break
+        }
         return dragToScroll ? handleGesture(type: type, event: event) : pass
+    }
+
+    /// The touch screen's firmware turns two-finger gestures into mouse and
+    /// keyboard input (measured on an UPerfect UMax 22 Touch):
+    /// - Two-finger swipe: the pointer jumps to the panel's corner and scroll
+    ///   events arrive there. Drop the jump and scroll where the touch was.
+    /// - Pinch: Cmd+Option+= / Cmd+Option+- key presses (macOS screen zoom
+    ///   shortcuts, sent to whatever app has keyboard focus). Ignore them.
+    /// Returns the event's fate if it was such an event, nil otherwise.
+    private func adjustTwoFingerGesture(type: CGEventType, event: CGEvent,
+                                        touchScreen: CGDirectDisplayID) -> Unmanaged<CGEvent>?? {
+        switch type {
+        case .keyDown, .keyUp, .flagsChanged:
+            log("ignoring pinch key event")
+            return .some(nil)
+        case .mouseMoved where isPanelCorner(event.location, touchScreen: touchScreen):
+            log("ignoring jump to the corner before two-finger scroll")
+            return .some(nil)
+        case .scrollWheel:
+            makeContentFollowFingers(event)
+            guard let lastTouchPoint else { return .some(Unmanaged.passUnretained(event)) }
+            event.location = lastTouchPoint
+            if hypot(pointerLocation().x - lastTouchPoint.x, pointerLocation().y - lastTouchPoint.y) > 1 {
+                movePointer(to: lastTouchPoint)
+            }
+            return .some(Unmanaged.passUnretained(event))
+        default:
+            return nil
+        }
+    }
+
+    /// The screen sends two-finger swipes as mouse-wheel scrolling, which
+    /// with natural scrolling on (the macOS default) moves the page against
+    /// the fingers. On a touch screen the page should follow the fingers.
+    private func makeContentFollowFingers(_ event: CGEvent) {
+        let natural = UserDefaults.standard.persistentDomain(forName: UserDefaults.globalDomain)?[
+            "com.apple.swipescrolldirection"] as? Bool ?? true
+        guard natural else { return }
+        let fields: [(CGEventField, CGEventField, CGEventField)] = [
+            (.scrollWheelEventDeltaAxis1, .scrollWheelEventPointDeltaAxis1, .scrollWheelEventFixedPtDeltaAxis1),
+            (.scrollWheelEventDeltaAxis2, .scrollWheelEventPointDeltaAxis2, .scrollWheelEventFixedPtDeltaAxis2),
+        ]
+        for (delta, point, fixed) in fields {
+            let d = event.getIntegerValueField(delta)
+            let p = event.getIntegerValueField(point)
+            let f = event.getDoubleValueField(fixed)
+            event.setIntegerValueField(delta, value: -d)
+            event.setIntegerValueField(point, value: -p)
+            event.setDoubleValueField(fixed, value: -f)
+        }
+    }
+
+    /// Whether `point` is where macOS puts the panel's (0, 0) corner: the
+    /// top left of the main display or of the touch screen.
+    private func isPanelCorner(_ point: CGPoint, touchScreen: CGDirectDisplayID) -> Bool {
+        [CGDisplayBounds(CGMainDisplayID()).origin, CGDisplayBounds(touchScreen).origin].contains { corner in
+            abs(point.x - corner.x) < 0.5 && abs(point.y - corner.y) < 0.5
+        }
     }
 
     private func remapToTouchScreen(_ event: CGEvent, touchScreen: CGDirectDisplayID) {
@@ -224,8 +306,7 @@ final class TouchInput {
     }
 
     private func post(_ event: CGEvent) {
-        event.setIntegerValueField(.eventSourceUserData, value: Self.replayMarker)
-        event.post(tap: .cghidEventTap)
+        postMarked(event, marker: Self.replayMarker)
     }
 
     private func log(_ message: String) {

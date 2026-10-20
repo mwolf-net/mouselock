@@ -6,6 +6,21 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Two-finger gestures on a touch screen (which many touch screens send as
+  mouse and keyboard input): two-finger scrolling now scrolls where the
+  fingers are, with the page following them, instead of at the screen's
+  corner; pinch, sent as screen-zoom key presses, is ignored. Part of
+  Touchscreen Adjust.
+- The touch screen's two-finger tap (a right-click) is blocked along with
+  other right-clicks, now also in Smart Touchscreen Mode.
+
+### Fixed
+
+- Smart Touchscreen Mode handled each tap twice when Touch Drag Scrolls was
+  also on, switching focus more than needed.
+
 ## [0.2.2] - 2026-10-20
 
 ### Added

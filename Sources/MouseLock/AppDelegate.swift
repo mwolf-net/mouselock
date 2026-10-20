@@ -161,6 +161,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         touchInput.touchScreen = lockScreen
         touchInput.remap = touchAdjust(on: lockScreen)
         touchInput.dragToScroll = isEnabled(Self.dragToScrollKey, on: lockScreen)
+        // The touch screen's two-finger tap is a right-click: block it like
+        // other right-clicks, both while locked and in smart touch mode.
+        touchInput.blockRightClick = blockExtraButtons
+            && (locker.isLocked || isEnabled(Self.smartTouchKey, on: lockScreen))
         // Smart touch only applies while unlocked: when locked, everyone is
         // on the lock screen anyway.
         let touchScreen = locker.isLocked ? nil : lockScreen
@@ -253,7 +257,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let context = item("Block Right-Click and Extra Buttons While Locked", #selector(blockExtraButtonsClicked))
         context.state = blockExtraButtons ? .on : .off
-        context.toolTip = "While locked, ignore right-clicks and the middle and back/forward buttons, so the mouse can't open context menus or navigate the browser. Ctrl+click still works."
+        context.toolTip = "While locked, ignore right-clicks and the middle and back/forward buttons, so the mouse can't open context menus or navigate the browser. Ctrl+click still works. Also ignores a touch screen's two-finger tap (a right-click) in Smart Touchscreen Mode."
         menu.addItem(context)
 
         menu.addItem(.separator())
@@ -278,7 +282,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let adjust = item("Touchscreen Adjust", #selector(touchAdjustClicked))
         adjust.state = touchAdjust(on: lockScreen) ? .on : .off
         adjust.isEnabled = canLock
-        adjust.toolTip = "Puts touches where the finger is: macOS sometimes sends a touch screen's taps to the main display, and doesn't rotate them along with a rotated screen. On by default when a USB touch screen is connected."
+        adjust.toolTip = "Puts touches where the finger is: macOS sometimes sends a touch screen's taps to the main display, and doesn't rotate them along with a rotated screen. Also makes two-finger scrolling scroll where the fingers are, and ignores pinch (which the screen sends as screen-zoom key presses). On by default when a USB touch screen is connected."
         adjust.indentationLevel = 1
         menu.addItem(adjust)
 
@@ -348,6 +352,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func blockExtraButtonsClicked() {
         blockExtraButtons.toggle()
         locker.blockExtraButtons = blockExtraButtons
+        updateState()
     }
 
     @objc func hidePointerClicked() {

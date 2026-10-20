@@ -21,6 +21,8 @@ final class SmartTouch {
     private static let focusTimeout: TimeInterval = 0.25
     /// Delay after a tap before restoring pointer and focus, so the app has
     /// handled the click, and so quick successive taps count as one burst.
+    /// (Apps such as Chrome ignore clicks while inactive, so they have to be
+    /// activated briefly.)
     private static let restoreDelay: TimeInterval = 0.15
 
     /// Where the pointer was before it came to the touch screen.
@@ -185,8 +187,7 @@ final class SmartTouch {
         let events = held
         held = []
         for event in events {
-            event.setIntegerValueField(.eventSourceUserData, value: Self.replayMarker)
-            event.post(tap: .cghidEventTap)
+            postMarked(event, marker: Self.replayMarker)
         }
         if events.contains(where: { $0.type == .leftMouseUp }) {
             tapInProgress = false

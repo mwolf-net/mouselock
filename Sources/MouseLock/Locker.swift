@@ -5,6 +5,24 @@ func movePointer(to point: CGPoint) {
     CGAssociateMouseAndMouseCursorPosition(1)
 }
 
+/// Posts `event` again, marked so our own event taps recognise it. Mouse
+/// events are re-created rather than copied: a copy of a received event
+/// keeps its original marker, whatever is set on it.
+func postMarked(_ event: CGEvent, marker: Int64) {
+    var toPost = event
+    if [.leftMouseDown, .leftMouseUp, .leftMouseDragged, .rightMouseDown, .rightMouseUp,
+        .rightMouseDragged, .mouseMoved].contains(event.type) {
+        let button = CGMouseButton(rawValue: UInt32(event.getIntegerValueField(.mouseEventButtonNumber))) ?? .left
+        guard let fresh = CGEvent(mouseEventSource: nil, mouseType: event.type,
+                                  mouseCursorPosition: event.location, mouseButton: button) else { return }
+        fresh.setIntegerValueField(.mouseEventClickState, value: event.getIntegerValueField(.mouseEventClickState))
+        fresh.flags = event.flags
+        toPost = fresh
+    }
+    toPost.setIntegerValueField(.eventSourceUserData, value: marker)
+    toPost.post(tap: .cghidEventTap)
+}
+
 /// Set MOUSELOCK_DEBUG=1 to log clamping to stderr.
 let debugLogging = ProcessInfo.processInfo.environment["MOUSELOCK_DEBUG"] != nil
 

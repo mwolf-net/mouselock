@@ -31,7 +31,9 @@ hotkey instead of restarting the browser.
 - **Kiosk-friendly options** (all on by default, except hiding the pointer):
   - Keep the Dock from moving onto the lock screen.
   - Keep a hidden menu bar (full-screen apps, or auto-hide) from sliding down.
-  - Block right-clicks and extra mouse buttons (middle, back/forward).
+  - Block right-clicks and extra mouse buttons (middle, back/forward),
+    including a touch screen's two-finger tap (also in Smart Touchscreen
+    Mode).
   - Hide the pointer, showing a brief crosshair where clicks land. Meant for
     touch screens, so it's set per screen and starts off for a new one.
 - **Touch screen support** for a touch screen as the lock screen:
@@ -46,8 +48,11 @@ hotkey instead of restarting the browser.
   - **Touchscreen Adjust**: macOS sometimes sends a touch screen's taps to
     the main display instead, and doesn't rotate them when the screen is
     rotated (System Settings -> Displays -> Rotation, say for a portrait
-    wall mount). MouseLock puts them where the finger is. On by default
-    when a USB touch screen is connected.
+    wall mount). MouseLock puts them where the finger is. Many touch screens
+    also turn two-finger gestures into mouse and keyboard input: MouseLock
+    makes two-finger scrolling scroll under the fingers (the page following
+    them), and ignores pinch, which arrives as screen-zoom key presses. On by
+    default when a USB touch screen is connected.
 - **Sensible default lock screen:** the external display on a laptop, or the
   screen the pointer isn't on when MouseLock starts. A screen picked in the
   menu is remembered.
