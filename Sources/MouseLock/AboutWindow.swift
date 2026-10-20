@@ -75,8 +75,10 @@ final class AboutWindow {
             """)
         paragraph("""
             Lock: the mouse pointer is locked onto the second screen (the lock screen), \
-            so the mouse can't leave it. Only the keyboard shortcut Ctrl+Option+Cmd+L \
-            unlocks it again; whoever has the keyboard is in charge.
+            so the mouse can't leave it. With an ordinary second screen, you can hand \
+            someone the mouse and let them use that screen safely; when you take the \
+            mouse back, unlock with the keyboard shortcut Ctrl+Option+Cmd+L. Only the \
+            keyboard unlocks: whoever has the keyboard is in charge.
             """)
         paragraph("""
             Smart touch: if the second screen is a touch screen, people can use it by \
@@ -86,9 +88,10 @@ final class AboutWindow {
 
         heading("Lock")
         option("Lock Screen", """
-            The screen the pointer gets locked to, and which is treated as the touch \
-            screen. By default the external screen on a laptop; a screen you pick is \
-            remembered whenever it's connected.
+            Your second screen: the one the pointer gets locked to. If it's a touch \
+            screen, the touch screen options below apply to it as well. By default the \
+            external screen on a laptop; a screen you pick is remembered whenever it's \
+            connected.
             """)
         option("Lock Pointer / Unlock Pointer (Ctrl+Option+Cmd+L)", """
             Moves the pointer onto the lock screen and keeps it there. Unlocking puts \
@@ -143,7 +146,10 @@ final class AboutWindow {
         option("Keep Display Awake", """
             Prevents display sleep, the screen saver and the idle password lock, \
             without locking the pointer. Always on while locked. Resets when \
-            MouseLock restarts.
+            MouseLock restarts. It only prevents sleep from inactivity: a laptop \
+            still goes to sleep when you close the lid on battery power (keeping it \
+            running with the lid closed needs the power adapter), or when the battery \
+            runs low.
             """)
         option("Start at Login", "Starts MouseLock automatically when you log in.")
 

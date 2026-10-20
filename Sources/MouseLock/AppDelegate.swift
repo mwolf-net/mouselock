@@ -296,7 +296,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             let awake = item("Keep Display Awake", #selector(keepAwakeClicked))
             awake.state = keepAwakeManually ? .on : .off
-            awake.toolTip = "Keep the display awake (no screen saver, display sleep or idle password lock) without locking the pointer. Always on while locked. Resets when MouseLock restarts."
+            awake.toolTip = "Keep the display awake (no screen saver, display sleep or idle password lock) without locking the pointer. Always on while locked. Resets when MouseLock restarts. Doesn't stop a laptop sleeping when its lid is closed on battery power."
             menu.addItem(awake)
         }
 

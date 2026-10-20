@@ -116,7 +116,10 @@ Click the pointer icon in the menu bar:
 - **Lock Pointer / Unlock Pointer** (Ctrl+Opt+Cmd+L): toggles the lock.
   Locking needs at least two screens.
 - **Keep Display Awake**: keeps the display awake without locking (it always
-  is while locked). Resets when MouseLock restarts.
+  is while locked). Resets when MouseLock restarts. It only prevents sleep
+  from inactivity: a laptop still sleeps when its lid is closed on battery
+  power (running with the lid closed needs the power adapter), or when the
+  battery runs low.
 - The remaining options are described under Features and remembered between
   launches.
 
