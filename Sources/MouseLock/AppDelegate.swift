@@ -16,17 +16,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var keepAwakeManually = false
     let pointerHider = PointerHider()
     let clickMarker = ClickMarker()
-    /// Touch-screen mode: the screens (by UUID) on which the pointer is hidden
-    /// while locked. Per screen, so it's off for any screen not seen before.
-    var hidePointerScreens: Set<String> {
-        get { Set(UserDefaults.standard.stringArray(forKey: "hidePointerScreens") ?? []) }
-        set { UserDefaults.standard.set(newValue.sorted(), forKey: "hidePointerScreens") }
+    let smartTouch = SmartTouch()
+    let touchMapper = TouchMapper()
+
+    // Touch-screen settings are stored per screen (as a set of display UUIDs
+    // per key), so they're off for any screen not seen before.
+    static let hidePointerKey = "hidePointerScreens"
+    static let smartTouchKey = "smartTouchScreens"
+
+    func isEnabled(_ key: String, on display: CGDirectDisplayID?) -> Bool {
+        guard let display, let uuid = displayUUID(display) else { return false }
+        return UserDefaults.standard.stringArray(forKey: key)?.contains(uuid) ?? false
     }
 
-    func hidesPointer(on display: CGDirectDisplayID?) -> Bool {
-        guard let display, let uuid = displayUUID(display) else { return false }
-        return hidePointerScreens.contains(uuid)
+    func toggle(_ key: String, on display: CGDirectDisplayID?) {
+        guard let display, let uuid = displayUUID(display) else { return }
+        var uuids = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+        uuids.formSymmetricDifference([uuid])
+        UserDefaults.standard.set(uuids.sorted(), forKey: key)
     }
+
     /// Keep the pointer off the lock screen's bottom row while locked
     /// (menu toggle, remembered, on by default).
     var keepDockOff: Bool {
@@ -118,7 +127,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func updateState() {
         stayAwake.set(locker.isLocked || keepAwakeManually)
-        pointerHider.set(hidesPointer(on: locker.lockedDisplay))
+        pointerHider.set(isEnabled(Self.hidePointerKey, on: locker.lockedDisplay))
+        // Smart touch only applies while unlocked: when locked, everyone is
+        // on the lock screen anyway.
+        // A touch screen's input lands on the main display; move it to the
+        // lock screen, which is where a touch screen would be.
+        touchMapper.touchScreen = lockScreen
+        let touchScreen = locker.isLocked ? nil : lockScreen
+        smartTouch.screen = isEnabled(Self.smartTouchKey, on: touchScreen) ? touchScreen : nil
 
         let symbol = locker.isLocked ? "lock.fill"
             : stayAwake.isActive ? "cup.and.saucer.fill"
@@ -144,6 +160,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// gone, or if it was only the built-in one by default and an external
     /// display has appeared.
     func revalidateLockScreen() {
+        defer { updateState() }
         if let chosen = chosenLockScreen() {
             lockScreen = chosen
             return
@@ -193,11 +210,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(awake)
         }
 
-        // Remembered per screen (see hidePointerScreens), without saying so.
+        // Remembered per screen (see isEnabled(_:on:)), without saying so.
         let hide = item("Hide Pointer When Locked", #selector(hidePointerClicked))
-        hide.state = hidesPointer(on: lockScreen) ? .on : .off
+        hide.state = isEnabled(Self.hidePointerKey, on: lockScreen) ? .on : .off
         hide.isEnabled = lockScreen != nil
         menu.addItem(hide)
+
+        let touch = item("Smart Touchscreen Mode", #selector(smartTouchClicked))
+        touch.state = isEnabled(Self.smartTouchKey, on: lockScreen) ? .on : .off
+        touch.isEnabled = canLock
+        menu.addItem(touch)
 
         let dock = item("Keep Dock Off Lock Screen", #selector(keepDockOffClicked))
         dock.state = keepDockOff ? .on : .off
@@ -241,6 +263,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         chosenLockScreenUUID = displayUUID(number.uint32Value)
         // Switching screens while locked moves the lock along.
         if locker.isLocked { lock() }
+        updateState()
     }
 
     @objc func toggleClicked() { toggle() }
@@ -261,8 +284,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func hidePointerClicked() {
-        guard let lockScreen, let uuid = displayUUID(lockScreen) else { return }
-        hidePointerScreens.formSymmetricDifference([uuid])
+        toggle(Self.hidePointerKey, on: lockScreen)
+        updateState()
+    }
+
+    @objc func smartTouchClicked() {
+        toggle(Self.smartTouchKey, on: lockScreen)
         updateState()
     }
 
