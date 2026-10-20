@@ -6,6 +6,13 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-21
+
+### Added
+
+- "About MouseLock..." in the menu: an overview, plus what each option is
+  for.
+
 ## [0.2.3] - 2026-10-21
 
 ### Added
@@ -94,7 +101,8 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/mwolf-net/mouselock/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/mwolf-net/mouselock/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/mwolf-net/mouselock/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/mwolf-net/mouselock/compare/v0.2.0...v0.2.1
