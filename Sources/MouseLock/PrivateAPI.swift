@@ -24,5 +24,5 @@ func CGSSetConnectionProperty(_ connection: CGSConnectionID, _ target: CGSConnec
 
 // Event field 87 holds the registry entry ID of the device (HID service)
 // that sent the event. Not in the public CGEventField enum, but stable for
-// years; TouchMapper uses it to tell touch screen input from the mouse.
+// years; TouchInput uses it to tell touch screen input from the mouse.
 let senderIDField = CGEventField(rawValue: 87)!

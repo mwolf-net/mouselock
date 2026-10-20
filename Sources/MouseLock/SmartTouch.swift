@@ -30,6 +30,18 @@ final class SmartTouch {
     private var restoreWork: DispatchWorkItem?
     /// Whether a press on the touch screen hasn't been released yet.
     private var tapInProgress = false
+
+    /// Whether the pointer is on the touch screen. In this mode it only goes
+    /// there on behalf of a touch, so the app hides it meanwhile.
+    private(set) var pointerOnScreen = false {
+        didSet { if pointerOnScreen != oldValue { onPointerOnScreenChanged?() } }
+    }
+    var onPointerOnScreenChanged: (() -> Void)?
+
+    /// Keep the mouse and trackpad off the touch screen, so only touches go
+    /// there. Needs `isTouchEvent` to tell them apart.
+    var keepMouseOff = false
+    var isTouchEvent: ((CGEvent) -> Bool)?
     /// A press held back while its window gets focused, plus what followed it.
     private var held: [CGEvent] = []
 
@@ -48,6 +60,7 @@ final class SmartTouch {
             savedFocus = nil
             held = []
             tapInProgress = false
+            pointerOnScreen = false
             return true
         }
         guard let tap = ensureTap() else { return false }
@@ -91,7 +104,19 @@ final class SmartTouch {
             return pass
         }
         let point = event.location
-        let onTouchScreen = CGDisplayBounds(screen).contains(point)
+        let bounds = CGDisplayBounds(screen)
+        if keepMouseOff, bounds.contains(point), type == .mouseMoved || type == .leftMouseDragged,
+           !(isTouchEvent?(event) ?? true) {
+            // The mouse tried to move onto the touch screen: keep it off.
+            let stay = pointOffTouchScreen(point, bounds: bounds)
+            event.location = stay
+            movePointer(to: stay)
+            home = stay
+            pointerOnScreen = false
+            return pass
+        }
+        let onTouchScreen = bounds.contains(point)
+        pointerOnScreen = onTouchScreen
 
         switch type {
         case .mouseMoved:
@@ -163,6 +188,31 @@ final class SmartTouch {
         }
     }
 
+    /// A touch gesture that didn't click (such as a scroll) ended: send the
+    /// pointer back, if this mode is on.
+    func touchEnded() {
+        guard screen != nil else { return }
+        scheduleRestore()
+    }
+
+    /// Where to keep the mouse when it tries to enter the touch screen at
+    /// `point`: slide along the edge where possible, else stay put.
+    private func pointOffTouchScreen(_ point: CGPoint, bounds: CGRect) -> CGPoint {
+        let main = CGDisplayBounds(CGMainDisplayID())
+        let from = home ?? CGPoint(x: main.midX, y: main.midY)
+        for candidate in [CGPoint(x: from.x, y: point.y), CGPoint(x: point.x, y: from.y)]
+        where !bounds.contains(candidate) && isOnSomeDisplay(candidate) {
+            return candidate
+        }
+        return from
+    }
+
+    private func isOnSomeDisplay(_ point: CGPoint) -> Bool {
+        var display = CGDirectDisplayID(0)
+        var count = UInt32(0)
+        return CGGetDisplaysWithPoint(point, 1, &display, &count) == .success && count > 0
+    }
+
     private func scheduleRestore() {
         restoreWork?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.restore() }
@@ -177,6 +227,7 @@ final class SmartTouch {
         if let screen, let home, CGDisplayBounds(screen).contains(pointerLocation()) {
             movePointer(to: home)
         }
+        pointerOnScreen = screen.map { CGDisplayBounds($0).contains(pointerLocation()) } ?? false
         if let savedFocus, !isFocused(savedFocus) {
             log("restoring focus to pid \(savedFocus.pid)")
             focus(savedFocus)

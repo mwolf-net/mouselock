@@ -17,12 +17,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let pointerHider = PointerHider()
     let clickMarker = ClickMarker()
     let smartTouch = SmartTouch()
-    let touchMapper = TouchMapper()
+    let touchInput = TouchInput()
 
     // Touch-screen settings are stored per screen (as a set of display UUIDs
     // per key), so they're off for any screen not seen before.
     static let hidePointerKey = "hidePointerScreens"
     static let smartTouchKey = "smartTouchScreens"
+    static let dragToScrollKey = "dragToScrollScreens"
 
     func isEnabled(_ key: String, on display: CGDirectDisplayID?) -> Bool {
         guard let display, let uuid = displayUUID(display) else { return false }
@@ -39,7 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
            let choice = choices[uuid] {
             return choice
         }
-        return TouchMapper.touchScreenConnected()
+        return TouchInput.touchScreenConnected()
     }
 
     func toggle(_ key: String, on display: CGDirectDisplayID?) {
@@ -109,14 +110,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         updateState()
         registerHotKey()
-        touchMapper.observeTouchScreens { [weak self] in
+        smartTouch.isTouchEvent = { [touchInput] event in touchInput.isTouch(event) }
+        // Smart touch hides the pointer while it's on the touch screen.
+        smartTouch.onPointerOnScreenChanged = { [weak self] in self?.updateState() }
+        // In smart touch mode, a scroll also sends the pointer back.
+        touchInput.onScrollEnded = { [weak self] in self?.smartTouch.touchEnded() }
+        touchInput.observeTouchScreens { [weak self] in
             if debugLogging {
-                FileHandle.standardError.write("touch screens changed; connected: \(TouchMapper.touchScreenConnected())\n".data(using: .utf8)!)
+                FileHandle.standardError.write("touch screens changed; connected: \(TouchInput.touchScreenConnected())\n".data(using: .utf8)!)
             }
             self?.updateState()
         }
         if debugLogging {
-            FileHandle.standardError.write("touch screen connected: \(TouchMapper.touchScreenConnected())\n".data(using: .utf8)!)
+            FileHandle.standardError.write("touch screen connected: \(TouchInput.touchScreenConnected())\n".data(using: .utf8)!)
         }
 
         NotificationCenter.default.addObserver(
@@ -149,14 +155,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func updateState() {
         stayAwake.set(locker.isLocked || keepAwakeManually)
-        pointerHider.set(isEnabled(Self.hidePointerKey, on: locker.lockedDisplay))
-        // Smart touch only applies while unlocked: when locked, everyone is
-        // on the lock screen anyway.
+        pointerHider.set(isEnabled(Self.hidePointerKey, on: locker.lockedDisplay) || smartTouch.pointerOnScreen)
         // A touch screen's input may land on the main display; move it to
         // the lock screen, which is where a touch screen would be.
-        touchMapper.touchScreen = touchAdjust(on: lockScreen) ? lockScreen : nil
+        touchInput.touchScreen = lockScreen
+        touchInput.remap = touchAdjust(on: lockScreen)
+        touchInput.dragToScroll = isEnabled(Self.dragToScrollKey, on: lockScreen)
+        // Smart touch only applies while unlocked: when locked, everyone is
+        // on the lock screen anyway.
         let touchScreen = locker.isLocked ? nil : lockScreen
         smartTouch.screen = isEnabled(Self.smartTouchKey, on: touchScreen) ? touchScreen : nil
+        // Keeping the mouse off the touch screen needs touches to be told
+        // apart from the mouse, which works for USB touch screens.
+        smartTouch.keepMouseOff = TouchInput.touchScreenConnected()
 
         let symbol = locker.isLocked ? "lock.fill"
             : stayAwake.isActive ? "cup.and.saucer.fill"
@@ -255,8 +266,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let touch = item("Smart Touchscreen Mode", #selector(smartTouchClicked))
         touch.state = isEnabled(Self.smartTouchKey, on: lockScreen) ? .on : .off
         touch.isEnabled = canLock
-        touch.toolTip = "While unlocked, a tap on the lock screen clicks what's under the finger in one go, then the pointer and keyboard focus return to where they were. Lets someone use the touch screen while you keep working."
+        touch.toolTip = "While unlocked, a tap on the lock screen clicks what's under the finger in one go, then the pointer and keyboard focus return to where they were. The mouse can't enter the touch screen and the pointer stays hidden there. Lets someone use the touch screen while you keep working."
         menu.addItem(touch)
+
+        let scroll = item("Touch Drag Scrolls", #selector(dragToScrollClicked))
+        scroll.state = isEnabled(Self.dragToScrollKey, on: lockScreen) ? .on : .off
+        scroll.isEnabled = lockScreen != nil
+        scroll.toolTip = "On the touch screen, dragging a finger scrolls instead of selecting text. A tap still clicks; to select or drag things, hold the finger still for a moment first."
+        menu.addItem(scroll)
 
         let dock = item("Keep Dock Off Lock Screen", #selector(keepDockOffClicked))
         dock.state = keepDockOff ? .on : .off
@@ -342,6 +359,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func smartTouchClicked() {
         toggle(Self.smartTouchKey, on: lockScreen)
+        updateState()
+    }
+
+    @objc func dragToScrollClicked() {
+        toggle(Self.dragToScrollKey, on: lockScreen)
         updateState()
     }
 

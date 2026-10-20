@@ -8,6 +8,11 @@ to unlock. That makes the second screen work like a kiosk (say, a web app in a
 full-screen browser for customers or guests) while you keep the laptop screen
 and the keyboard for yourself.
 
+If the second screen is a touch screen, there's an even simpler setup: in
+Smart Touchscreen Mode your mouse stays on your screen, while someone else
+uses the touch screen by tapping and scrolling, without disturbing your
+pointer or keyboard focus.
+
 Why not Chrome's `--kiosk` mode? It's great for a dedicated machine, but it
 needs a browser instance of its own, so it can't share a profile (logins,
 local storage) with the normal browser window on your laptop screen. It also
@@ -33,7 +38,11 @@ hotkey instead of restarting the browser.
   - **Smart Touchscreen Mode**: while unlocked, a tap on the touch screen
     clicks what's under the finger (in one tap, even in an inactive window),
     then the pointer and keyboard focus go straight back to where they were.
-    Someone can use the touch screen while you keep working on yours.
+    The mouse can't enter the touch screen, and the pointer stays hidden
+    there. Someone can use the touch screen while you keep working on yours.
+  - **Touch Drag Scrolls**: dragging a finger scrolls instead of selecting
+    text. A tap still clicks; holding the finger still for a moment before
+    dragging selects or drags as usual.
   - **Touchscreen Adjust**: macOS sometimes sends a touch screen's taps to
     the main display instead. MouseLock moves them back onto the touch
     screen. On by default when a USB touch screen is connected.
