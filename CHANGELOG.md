@@ -6,14 +6,21 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-20
+
 ### Added
 
 - Smart Touchscreen Mode: while unlocked, a tap on the lock screen clicks
   the window under it in one go (even if inactive), then returns the
-  pointer and keyboard focus to where they were on the other screen.
+  pointer and keyboard focus to where they were on the other screen. The
+  mouse is kept off the touch screen (when a USB touch screen is detected)
+  and the pointer is hidden there.
+- Touch Drag Scrolls: a one-finger drag on the touch screen scrolls instead
+  of selecting text; press and hold briefly first to drag as usual.
 - Touchscreen Adjust: moves touches that macOS sent to the main display onto
   the lock screen, keeping their relative position. On by default when a USB
   touch screen is connected; can be switched per screen.
+- Tooltips explaining each menu item.
 
 ## [0.1.1] - 2026-10-17
 
@@ -47,6 +54,7 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/mwolf-net/mouselock/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/mwolf-net/mouselock/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mwolf-net/mouselock/releases/tag/v0.1.0
