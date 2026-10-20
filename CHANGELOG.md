@@ -6,6 +6,15 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-10-21
+
+### Changed
+
+- About window: the lock screen is described as your second screen (not
+  necessarily a touch screen), with the hand-over-the-mouse use of the lock;
+  Keep Display Awake notes that a laptop still sleeps when its lid is closed
+  on battery power.
+
 ## [0.2.4] - 2026-10-21
 
 ### Added
@@ -101,7 +110,8 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.2.5...HEAD
+[0.2.5]: https://github.com/mwolf-net/mouselock/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/mwolf-net/mouselock/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/mwolf-net/mouselock/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/mwolf-net/mouselock/compare/v0.2.1...v0.2.2
