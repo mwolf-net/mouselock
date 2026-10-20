@@ -144,6 +144,10 @@ more ways out. Worth checking:
   nothing to switch to. Also turn off Magic Mouse and trackpad gestures that
   switch Spaces or full-screen apps (System Settings -> Mouse / Trackpad ->
   More Gestures).
+- In Smart Touchscreen Mode, a tap briefly activates the app on the touch
+  screen, which brings all of that app's windows forward. So on your own
+  screen, either don't use that app, or use only that app (say Chrome on
+  both screens), so nothing jumps in front of your work.
 - Turn off hot corners and Universal Control if you don't use them, and
   consider a Focus mode so notifications don't pop up on the lock screen.
 - In the web app: prevent swipe-back navigation with

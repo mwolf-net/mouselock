@@ -153,6 +153,37 @@ final class AboutWindow {
             """)
         option("Start at Login", "Starts MouseLock automatically when you log in.")
 
+        heading("Tips")
+        option("Mouse gestures", """
+            Handing someone a Magic Mouse (or trackpad) while locked? Turn off the \
+            gestures that switch between full-screen apps and Spaces (System \
+            Settings > Mouse > More Gestures), or they can swipe the lock screen's \
+            app away.
+            """)
+        option("Apps on your screen", """
+            In Smart Touchscreen Mode, a tap briefly activates the app on the touch \
+            screen, and macOS then brings all of that app's windows forward. So on \
+            your own screen, either don't use that app at all, or use only that app \
+            (say Chrome on both screens): then nothing jumps in front of your work.
+            """)
+        option("One app, full screen", """
+            Give the lock or touch screen a single Space with just the one app, in \
+            full screen. Any normal window gives access to Finder and other apps.
+            """)
+        option("Keyboard and USB", """
+            Whoever has the keyboard can unlock, so keep it out of reach. The same \
+            goes for the Mac's USB ports, and any USB port on the touch screen \
+            itself: plugging in a keyboard bypasses all of this.
+            """)
+        option("Other ways out", """
+            Consider turning off hot corners and Universal Control, and a Focus mode \
+            so notifications don't pop up on the shared screen.
+            """)
+        option("Two-finger gestures", """
+            Many touch screens start a two-finger gesture with a click where the \
+            first finger lands, so begin pinches and swipes on an empty spot.
+            """)
+
         text.append(NSAttributedString(string: "\n"))
         let footer = NSMutableAttributedString(string: """
             Free software under the BSD 2-Clause License. Designed and tested by \
