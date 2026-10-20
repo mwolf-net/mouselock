@@ -125,6 +125,68 @@ final class TouchMapper {
         return false
     }
 
+    // MARK: Detecting touch screens
+
+    /// Whether a USB touch screen is connected. (USB only: a MacBook's Touch
+    /// Bar is a touch screen digitizer too, but on an internal bus.)
+    static func touchScreenConnected() -> Bool {
+        var iterator: io_iterator_t = 0
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, touchScreenMatching(), &iterator) == KERN_SUCCESS
+        else { return false }
+        defer { IOObjectRelease(iterator) }
+        var found = false
+        while case let entry = IOIteratorNext(iterator), entry != 0 {
+            if !found && hasUSBDeviceAncestor(entry) { found = true }
+            IOObjectRelease(entry)
+        }
+        return found
+    }
+
+    private var notifyPort: IONotificationPortRef?
+
+    /// Calls `handler` (on the main thread) whenever a touch screen interface
+    /// appears or disappears.
+    func observeTouchScreens(_ handler: @escaping () -> Void) {
+        guard notifyPort == nil, let port = IONotificationPortCreate(kIOMainPortDefault) else { return }
+        notifyPort = port
+        IONotificationPortSetDispatchQueue(port, .main)
+        onTouchScreensChanged = handler
+        let callback: IOServiceMatchingCallback = { refcon, iterator in
+            // Drain the iterator to re-arm the notification.
+            while case let entry = IOIteratorNext(iterator), entry != 0 { IOObjectRelease(entry) }
+            let mapper = Unmanaged<TouchMapper>.fromOpaque(refcon!).takeUnretainedValue()
+            mapper.onTouchScreensChanged?()
+        }
+        let refcon = Unmanaged.passUnretained(self).toOpaque()
+        for type in [kIOFirstMatchNotification, kIOTerminatedNotification] {
+            var iterator: io_iterator_t = 0
+            if IOServiceAddMatchingNotification(port, type, Self.touchScreenMatching(), callback, refcon,
+                                                &iterator) == KERN_SUCCESS {
+                while case let entry = IOIteratorNext(iterator), entry != 0 { IOObjectRelease(entry) }
+            }
+        }
+    }
+
+    private var onTouchScreensChanged: (() -> Void)?
+
+    private static func touchScreenMatching() -> CFDictionary {
+        [kIOPropertyMatchKey: [kIOHIDPrimaryUsagePageKey: 0x0D, kIOHIDPrimaryUsageKey: 0x04]] as CFDictionary
+    }
+
+    private static func hasUSBDeviceAncestor(_ entry: io_registry_entry_t) -> Bool {
+        var current = entry
+        IOObjectRetain(current)
+        defer { IOObjectRelease(current) }
+        for _ in 0..<8 {
+            if IOObjectConformsTo(current, "IOUSBHostDevice") != 0 { return true }
+            var parent: io_registry_entry_t = 0
+            guard IORegistryEntryGetParentEntry(current, kIOServicePlane, &parent) == KERN_SUCCESS else { return false }
+            IOObjectRelease(current)
+            current = parent
+        }
+        return false
+    }
+
     private static func hasTouchScreenInterface(below device: io_registry_entry_t) -> Bool {
         var iterator: io_iterator_t = 0
         guard IORegistryEntryCreateIterator(device, kIOServicePlane, IOOptionBits(kIORegistryIterateRecursively),

@@ -29,6 +29,14 @@ hotkey instead of restarting the browser.
   - Block right-clicks and extra mouse buttons (middle, back/forward).
   - Hide the pointer, showing a brief crosshair where clicks land. Meant for
     touch screens, so it's set per screen and starts off for a new one.
+- **Touch screen support** for a touch screen as the lock screen:
+  - **Smart Touchscreen Mode**: while unlocked, a tap on the touch screen
+    clicks what's under the finger (in one tap, even in an inactive window),
+    then the pointer and keyboard focus go straight back to where they were.
+    Someone can use the touch screen while you keep working on yours.
+  - **Touchscreen Adjust**: macOS sometimes sends a touch screen's taps to
+    the main display instead. MouseLock moves them back onto the touch
+    screen. On by default when a USB touch screen is connected.
 - **Sensible default lock screen:** the external display on a laptop, or the
   screen the pointer isn't on when MouseLock starts. A screen picked in the
   menu is remembered.

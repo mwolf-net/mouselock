@@ -6,6 +6,15 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Smart Touchscreen Mode: while unlocked, a tap on the lock screen clicks
+  the window under it in one go (even if inactive), then returns the
+  pointer and keyboard focus to where they were on the other screen.
+- Touchscreen Adjust: moves touches that macOS sent to the main display onto
+  the lock screen, keeping their relative position. On by default when a USB
+  touch screen is connected; can be switched per screen.
+
 ## [0.1.1] - 2026-10-17
 
 ### Added

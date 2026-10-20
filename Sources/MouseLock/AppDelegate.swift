@@ -29,6 +29,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return UserDefaults.standard.stringArray(forKey: key)?.contains(uuid) ?? false
     }
 
+    /// Touchscreen Adjust: on by default when a USB touch screen is connected,
+    /// unless the user picked on or off for this screen.
+    static let touchAdjustKey = "touchscreenAdjust"
+
+    func touchAdjust(on display: CGDirectDisplayID?) -> Bool {
+        if let display, let uuid = displayUUID(display),
+           let choices = UserDefaults.standard.dictionary(forKey: Self.touchAdjustKey) as? [String: Bool],
+           let choice = choices[uuid] {
+            return choice
+        }
+        return TouchMapper.touchScreenConnected()
+    }
+
     func toggle(_ key: String, on display: CGDirectDisplayID?) {
         guard let display, let uuid = displayUUID(display) else { return }
         var uuids = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
@@ -96,6 +109,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         updateState()
         registerHotKey()
+        touchMapper.observeTouchScreens { [weak self] in
+            if debugLogging {
+                FileHandle.standardError.write("touch screens changed; connected: \(TouchMapper.touchScreenConnected())\n".data(using: .utf8)!)
+            }
+            self?.updateState()
+        }
+        if debugLogging {
+            FileHandle.standardError.write("touch screen connected: \(TouchMapper.touchScreenConnected())\n".data(using: .utf8)!)
+        }
 
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -130,9 +152,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         pointerHider.set(isEnabled(Self.hidePointerKey, on: locker.lockedDisplay))
         // Smart touch only applies while unlocked: when locked, everyone is
         // on the lock screen anyway.
-        // A touch screen's input lands on the main display; move it to the
-        // lock screen, which is where a touch screen would be.
-        touchMapper.touchScreen = lockScreen
+        // A touch screen's input may land on the main display; move it to
+        // the lock screen, which is where a touch screen would be.
+        touchMapper.touchScreen = touchAdjust(on: lockScreen) ? lockScreen : nil
         let touchScreen = locker.isLocked ? nil : lockScreen
         smartTouch.screen = isEnabled(Self.smartTouchKey, on: touchScreen) ? touchScreen : nil
 
@@ -177,6 +199,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let header = NSMenuItem(title: "Lock Screen", action: nil, keyEquivalent: "")
         header.isEnabled = false
+        header.toolTip = "The screen the pointer gets locked to. Usually the second screen for customers or guests; if it's a touch screen, the touch options below apply to it."
         menu.addItem(header)
         for display in displays {
             let title = display.name + (display.isBuiltin ? " (built-in)" : "")
@@ -185,6 +208,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             entry.state = display.id == lockScreen ? .on : .off
             entry.indentationLevel = 1
             entry.isEnabled = canLock
+            entry.toolTip = "Use this screen as the lock screen. Your choice is remembered whenever this screen is connected."
             menu.addItem(entry)
         }
 
@@ -196,6 +220,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         toggleItem.keyEquivalent = hotKeyEquivalent
         toggleItem.keyEquivalentModifierMask = hotKeyEquivalentModifiers
         toggleItem.isEnabled = locker.isLocked || canLock
+        toggleItem.toolTip = locker.isLocked
+            ? "Release the pointer and put it back where it was before locking."
+            : "Move the pointer to the lock screen and keep it there: moving the mouse can't take it off. Only the keyboard shortcut unlocks."
         menu.addItem(toggleItem)
 
         menu.addItem(.separator())
@@ -203,10 +230,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let awake = NSMenuItem(title: "Keeping Display Awake (while locked)", action: nil, keyEquivalent: "")
             awake.state = .on
             awake.isEnabled = false
+            awake.toolTip = "While locked, the display never sleeps and the screen saver and idle password lock don't start."
             menu.addItem(awake)
         } else {
             let awake = item("Keep Display Awake", #selector(keepAwakeClicked))
             awake.state = keepAwakeManually ? .on : .off
+            awake.toolTip = "Keep the display awake (no screen saver, display sleep or idle password lock) without locking the pointer. Always on while locked. Resets when MouseLock restarts."
             menu.addItem(awake)
         }
 
@@ -214,30 +243,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let hide = item("Hide Pointer When Locked", #selector(hidePointerClicked))
         hide.state = isEnabled(Self.hidePointerKey, on: lockScreen) ? .on : .off
         hide.isEnabled = lockScreen != nil
+        hide.toolTip = "Hide the pointer while it's locked, showing a brief crosshair where taps or clicks land. Meant for touch screens; remembered for this lock screen only."
         menu.addItem(hide)
+
+        let adjust = item("Touchscreen Adjust", #selector(touchAdjustClicked))
+        adjust.state = touchAdjust(on: lockScreen) ? .on : .off
+        adjust.isEnabled = canLock
+        adjust.toolTip = "macOS sometimes sends a touch screen's taps to the main display. This moves them onto the lock screen, at the matching spot. On by default when a USB touch screen is connected."
+        menu.addItem(adjust)
 
         let touch = item("Smart Touchscreen Mode", #selector(smartTouchClicked))
         touch.state = isEnabled(Self.smartTouchKey, on: lockScreen) ? .on : .off
         touch.isEnabled = canLock
+        touch.toolTip = "While unlocked, a tap on the lock screen clicks what's under the finger in one go, then the pointer and keyboard focus return to where they were. Lets someone use the touch screen while you keep working."
         menu.addItem(touch)
 
         let dock = item("Keep Dock Off Lock Screen", #selector(keepDockOffClicked))
         dock.state = keepDockOff ? .on : .off
+        dock.toolTip = "While locked, keep the pointer off the lock screen's bottom edge, so the Dock can't be pulled onto it."
         menu.addItem(dock)
 
         let menuBar = item("Keep Menu Bar Hidden on Lock Screen", #selector(keepMenuBarHiddenClicked))
         menuBar.state = keepMenuBarHidden ? .on : .off
+        menuBar.toolTip = "While locked, keep the pointer off the lock screen's top edge, so a hidden menu bar (in full-screen apps) doesn't slide down."
         menu.addItem(menuBar)
 
         let context = item("Block Right-Click and Extra Buttons While Locked", #selector(blockExtraButtonsClicked))
         context.state = blockExtraButtons ? .on : .off
+        context.toolTip = "While locked, ignore right-clicks and the middle and back/forward buttons, so the mouse can't open context menus or navigate the browser. Ctrl+click still works."
         menu.addItem(context)
 
         menu.addItem(.separator())
         let login = item("Start at Login", #selector(startAtLoginClicked))
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        login.toolTip = "Start MouseLock automatically when you log in."
         menu.addItem(login)
-        menu.addItem(item("Quit MouseLock", #selector(quitClicked)))
+        let quit = item("Quit MouseLock", #selector(quitClicked))
+        quit.toolTip = "Quit MouseLock. Any lock is released."
+        menu.addItem(quit)
 
         // While locked the pointer is on the lock screen, so any menu click
         // comes from there. Refuse everything (Quit would release the lock,
@@ -246,6 +289,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             for item in menu.items { item.isEnabled = false }
             let note = NSMenuItem(title: "Locked: unlock with the keyboard shortcut", action: nil, keyEquivalent: "")
             note.isEnabled = false
+            note.toolTip = "So that the mouse alone can't release the lock, the menu is disabled while locked."
             menu.insertItem(note, at: 0)
             menu.insertItem(.separator(), at: 1)
         }
@@ -285,6 +329,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func hidePointerClicked() {
         toggle(Self.hidePointerKey, on: lockScreen)
+        updateState()
+    }
+
+    @objc func touchAdjustClicked() {
+        guard let lockScreen, let uuid = displayUUID(lockScreen) else { return }
+        var choices = UserDefaults.standard.dictionary(forKey: Self.touchAdjustKey) as? [String: Bool] ?? [:]
+        choices[uuid] = !touchAdjust(on: lockScreen)
+        UserDefaults.standard.set(choices, forKey: Self.touchAdjustKey)
         updateState()
     }
 
