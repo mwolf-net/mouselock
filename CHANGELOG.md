@@ -6,6 +6,12 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Touchscreen Adjust also handles a rotated touch screen: macOS rotates the
+  picture but not the touches, so MouseLock applies the display's rotation
+  (System Settings -> Displays -> Rotation) to them. Measured at 90 degrees.
+
 ## [0.2.1] - 2026-10-20
 
 ### Changed

@@ -8,6 +8,8 @@ import IOKit
 ///   display, wherever the touch screen actually is. Such touches are moved
 ///   onto the touch screen, keeping their relative position (10% from the
 ///   left of the main display becomes 10% from the left of the touch screen).
+///   macOS also doesn't rotate touches along with a rotated touch screen, so
+///   the screen's rotation is applied too.
 /// - Drag to scroll: a one-finger drag scrolls instead of selecting text. A
 ///   tap still clicks, and pressing briefly before dragging still drags.
 ///
@@ -110,18 +112,38 @@ final class TouchInput {
     }
 
     private func remapToTouchScreen(_ event: CGEvent, touchScreen: CGDirectDisplayID) {
-        // Only remap touches that landed on the main display: depending on
-        // how the screen is connected, macOS sometimes gets it right itself.
+        // Depending on how the screen is connected, macOS puts touches either
+        // on the touch screen or on the main display. Either way it scales
+        // the panel's own (unrotated) coordinates to that display, so a
+        // rotated touch screen also needs the rotation applied.
         let main = CGDisplayBounds(CGMainDisplayID())
         let target = CGDisplayBounds(touchScreen)
         let point = event.location
-        guard main != target, main.contains(point), main.width > 0, main.height > 0 else { return }
-        let mapped = CGPoint(
-            x: target.minX + (point.x - main.minX) / main.width * target.width,
-            y: target.minY + (point.y - main.minY) / main.height * target.height
-        )
+        let source: CGRect
+        if target.contains(point) {
+            source = target
+        } else if main != target, main.contains(point) {
+            source = main
+        } else {
+            return
+        }
+        let rotation = Int(CGDisplayRotation(touchScreen).rounded())
+        guard source != target || rotation % 360 != 0, source.width > 0, source.height > 0 else { return }
+
+        // Position on the panel, 0...1 from its (unrotated) top left.
+        let p = (point.x - source.minX) / source.width
+        let q = (point.y - source.minY) / source.height
+        // The same spot on the rotated screen. Measured for 90 degrees; 180
+        // and 270 follow from it.
+        let (u, v): (CGFloat, CGFloat) = switch (rotation % 360 + 360) % 360 {
+        case 90: (1 - q, p)
+        case 180: (1 - p, 1 - q)
+        case 270: (q, 1 - p)
+        default: (p, q)
+        }
+        let mapped = CGPoint(x: target.minX + u * target.width, y: target.minY + v * target.height)
         if debugLogging {
-            FileHandle.standardError.write("touch \(point) -> \(mapped)\n".data(using: .utf8)!)
+            FileHandle.standardError.write("touch \(point) -> \(mapped) (rotation \(rotation))\n".data(using: .utf8)!)
         }
         event.location = mapped
     }

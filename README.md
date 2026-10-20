@@ -44,8 +44,10 @@ hotkey instead of restarting the browser.
     text. A tap still clicks; holding the finger still for a moment before
     dragging selects or drags as usual.
   - **Touchscreen Adjust**: macOS sometimes sends a touch screen's taps to
-    the main display instead. MouseLock moves them back onto the touch
-    screen. On by default when a USB touch screen is connected.
+    the main display instead, and doesn't rotate them when the screen is
+    rotated (System Settings -> Displays -> Rotation, say for a portrait
+    wall mount). MouseLock puts them where the finger is. On by default
+    when a USB touch screen is connected.
 - **Sensible default lock screen:** the external display on a laptop, or the
   screen the pointer isn't on when MouseLock starts. A screen picked in the
   menu is remembered.

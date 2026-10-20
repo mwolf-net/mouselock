@@ -278,7 +278,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let adjust = item("Touchscreen Adjust", #selector(touchAdjustClicked))
         adjust.state = touchAdjust(on: lockScreen) ? .on : .off
         adjust.isEnabled = canLock
-        adjust.toolTip = "macOS sometimes sends a touch screen's taps to the main display. This moves them onto the lock screen, at the matching spot. On by default when a USB touch screen is connected."
+        adjust.toolTip = "Puts touches where the finger is: macOS sometimes sends a touch screen's taps to the main display, and doesn't rotate them along with a rotated screen. On by default when a USB touch screen is connected."
         adjust.indentationLevel = 1
         menu.addItem(adjust)
 
