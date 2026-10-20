@@ -41,6 +41,8 @@ final class SmartTouch {
     /// Keep the mouse and trackpad off the touch screen, so only touches go
     /// there. Needs `isTouchEvent` to tell them apart.
     var keepMouseOff = false
+    /// Whether the pointer was left on the touch screen after a touch.
+    private var parked = false
     var isTouchEvent: ((CGEvent) -> Bool)?
     /// A press held back while its window gets focused, plus what followed it.
     private var held: [CGEvent] = []
@@ -60,6 +62,7 @@ final class SmartTouch {
             savedFocus = nil
             held = []
             tapInProgress = false
+            parked = false
             pointerOnScreen = false
             return true
         }
@@ -107,8 +110,11 @@ final class SmartTouch {
         let bounds = CGDisplayBounds(screen)
         if keepMouseOff, bounds.contains(point), type == .mouseMoved || type == .leftMouseDragged,
            !(isTouchEvent?(event) ?? true) {
-            // The mouse tried to move onto the touch screen: keep it off.
-            let stay = pointOffTouchScreen(point, bounds: bounds)
+            // The mouse tried to move onto the touch screen: keep it off. If
+            // the pointer was parked there after a touch, send it home.
+            let stay = parked ? (home ?? pointOffTouchScreen(point, bounds: bounds))
+                : pointOffTouchScreen(point, bounds: bounds)
+            parked = false
             event.location = stay
             movePointer(to: stay)
             home = stay
@@ -223,9 +229,16 @@ final class SmartTouch {
     private func restore() {
         restoreWork = nil
         // Only move the pointer if it's still on the touch screen (the main
-        // user may have moved the mouse away in the meantime).
+        // user may have moved the mouse away in the meantime). With the mouse
+        // kept off the touch screen, leave it parked there (hidden) instead,
+        // so hover effects like drop-down menus stay open: it goes home as
+        // soon as the mouse moves.
         if let screen, let home, CGDisplayBounds(screen).contains(pointerLocation()) {
-            movePointer(to: home)
+            if keepMouseOff {
+                parked = true
+            } else {
+                movePointer(to: home)
+            }
         }
         pointerOnScreen = screen.map { CGDisplayBounds($0).contains(pointerLocation()) } ?? false
         if let savedFocus, !isFocused(savedFocus) {
