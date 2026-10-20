@@ -100,7 +100,9 @@ final class TouchInput {
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
             return pass
         }
-        guard let touchScreen, event.getIntegerValueField(.eventSourceUserData) != Self.replayMarker,
+        // Skip events we posted ourselves, including smart touch's replays.
+        let marker = event.getIntegerValueField(.eventSourceUserData)
+        guard let touchScreen, marker != Self.replayMarker, marker != SmartTouch.replayMarker,
               isTouchScreen(sender: event.getIntegerValueField(senderIDField)) else { return pass }
 
         if remap { remapToTouchScreen(event, touchScreen: touchScreen) }

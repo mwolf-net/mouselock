@@ -16,7 +16,7 @@ final class SmartTouch {
 
     private var tap: CFMachPort?
     /// Marks the clicks we replay, so our own tap lets them through.
-    private static let replayMarker: Int64 = 0x4D4C_5354 // 'MLST'
+    static let replayMarker: Int64 = 0x4D4C_5354 // 'MLST'
     /// How long to wait for a window to become focused before clicking anyway.
     private static let focusTimeout: TimeInterval = 0.25
     /// Delay after a tap before restoring pointer and focus, so the app has
