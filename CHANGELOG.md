@@ -6,6 +6,14 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-10-21
+
+### Added
+
+- A Tips section in the About window: mouse gestures to turn off, which apps
+  to use on your own screen with Smart Touchscreen Mode, and ways to keep
+  the shared screen safe.
+
 ## [0.2.6] - 2026-10-21
 
 ### Fixed
@@ -122,7 +130,8 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.2.6...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.2.7...HEAD
+[0.2.7]: https://github.com/mwolf-net/mouselock/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/mwolf-net/mouselock/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/mwolf-net/mouselock/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/mwolf-net/mouselock/compare/v0.2.3...v0.2.4
