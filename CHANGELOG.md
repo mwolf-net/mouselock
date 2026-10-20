@@ -6,6 +6,18 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-10-21
+
+### Fixed
+
+- After an update, MouseLock could silently do nothing: macOS treats each
+  new build as a new app, so the Accessibility permission of the previous
+  version no longer applied, while the menu still showed options as on.
+  Now MouseLock removes the stale permission entry and asks again on the
+  first launch of a new version, shows a warning icon and an "Accessibility
+  Permission Needed" menu item while the permission is missing, and starts
+  working as soon as it's granted, without a restart.
+
 ## [0.2.5] - 2026-10-21
 
 ### Changed
@@ -110,7 +122,8 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/mwolf-net/mouselock/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/mwolf-net/mouselock/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/mwolf-net/mouselock/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/mwolf-net/mouselock/compare/v0.2.2...v0.2.3
