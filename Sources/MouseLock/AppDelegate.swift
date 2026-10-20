@@ -305,6 +305,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         login.toolTip = "Start MouseLock automatically when you log in."
         menu.addItem(login)
+        let about = item("About MouseLock…", #selector(aboutClicked))
+        about.toolTip = "What MouseLock does, and what each option is for."
+        menu.addItem(about)
         let quit = item("Quit MouseLock", #selector(quitClicked))
         quit.toolTip = "Quit MouseLock. Any lock is released."
         menu.addItem(quit)
@@ -394,6 +397,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSSound.beep()
         }
     }
+
+    let aboutWindow = AboutWindow()
+
+    @objc func aboutClicked() { aboutWindow.show() }
 
     @objc func quitClicked() { NSApp.terminate(nil) }
 
