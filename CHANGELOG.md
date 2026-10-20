@@ -6,6 +6,21 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-20
+
+### Changed
+
+- The menu is organised into sections: lock (with the lock screen choice),
+  touchscreen, and Keep Display Awake.
+- Smart Touchscreen Mode leaves the pointer (hidden) on the touch screen
+  after a tap, so hover effects such as drop-down menus stay open; it goes
+  back as soon as the mouse moves.
+
+### Fixed
+
+- With Touch Drag Scrolls and Smart Touchscreen Mode both on, taps were
+  held back twice, delaying the click.
+
 ## [0.2.0] - 2026-10-20
 
 ### Added
@@ -54,7 +69,8 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/mwolf-net/mouselock/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/mwolf-net/mouselock/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/mwolf-net/mouselock/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mwolf-net/mouselock/releases/tag/v0.1.0
