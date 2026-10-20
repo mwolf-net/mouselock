@@ -223,7 +223,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(entry)
         }
 
-        menu.addItem(.separator())
         let toggleTitle = locker.isLocked ? "Unlock Pointer"
             : canLock ? "Lock Pointer"
             : "Lock Pointer (needs a second screen)"
@@ -235,45 +234,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             ? "Release the pointer and put it back where it was before locking."
             : "Move the pointer to the lock screen and keep it there: moving the mouse can't take it off. Only the keyboard shortcut unlocks."
         menu.addItem(toggleItem)
-
-        menu.addItem(.separator())
-        if locker.isLocked {
-            let awake = NSMenuItem(title: "Keeping Display Awake (while locked)", action: nil, keyEquivalent: "")
-            awake.state = .on
-            awake.isEnabled = false
-            awake.toolTip = "While locked, the display never sleeps and the screen saver and idle password lock don't start."
-            menu.addItem(awake)
-        } else {
-            let awake = item("Keep Display Awake", #selector(keepAwakeClicked))
-            awake.state = keepAwakeManually ? .on : .off
-            awake.toolTip = "Keep the display awake (no screen saver, display sleep or idle password lock) without locking the pointer. Always on while locked. Resets when MouseLock restarts."
-            menu.addItem(awake)
-        }
-
         // Remembered per screen (see isEnabled(_:on:)), without saying so.
         let hide = item("Hide Pointer When Locked", #selector(hidePointerClicked))
         hide.state = isEnabled(Self.hidePointerKey, on: lockScreen) ? .on : .off
         hide.isEnabled = lockScreen != nil
         hide.toolTip = "Hide the pointer while it's locked, showing a brief crosshair where taps or clicks land. Meant for touch screens; remembered for this lock screen only."
         menu.addItem(hide)
-
-        let adjust = item("Touchscreen Adjust", #selector(touchAdjustClicked))
-        adjust.state = touchAdjust(on: lockScreen) ? .on : .off
-        adjust.isEnabled = canLock
-        adjust.toolTip = "macOS sometimes sends a touch screen's taps to the main display. This moves them onto the lock screen, at the matching spot. On by default when a USB touch screen is connected."
-        menu.addItem(adjust)
-
-        let touch = item("Smart Touchscreen Mode", #selector(smartTouchClicked))
-        touch.state = isEnabled(Self.smartTouchKey, on: lockScreen) ? .on : .off
-        touch.isEnabled = canLock
-        touch.toolTip = "While unlocked, a tap on the lock screen clicks what's under the finger in one go, then the pointer and keyboard focus return to where they were. The mouse can't enter the touch screen and the pointer stays hidden there. Lets someone use the touch screen while you keep working."
-        menu.addItem(touch)
-
-        let scroll = item("Touch Drag Scrolls", #selector(dragToScrollClicked))
-        scroll.state = isEnabled(Self.dragToScrollKey, on: lockScreen) ? .on : .off
-        scroll.isEnabled = lockScreen != nil
-        scroll.toolTip = "On the touch screen, dragging a finger scrolls instead of selecting text. A tap still clicks; to select or drag things, hold the finger still for a moment first."
-        menu.addItem(scroll)
 
         let dock = item("Keep Dock Off Lock Screen", #selector(keepDockOffClicked))
         dock.state = keepDockOff ? .on : .off
@@ -289,6 +255,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         context.state = blockExtraButtons ? .on : .off
         context.toolTip = "While locked, ignore right-clicks and the middle and back/forward buttons, so the mouse can't open context menus or navigate the browser. Ctrl+click still works."
         menu.addItem(context)
+
+        menu.addItem(.separator())
+        let touchHeader = NSMenuItem(title: "Touchscreen", action: nil, keyEquivalent: "")
+        touchHeader.isEnabled = false
+        touchHeader.toolTip = "For a touch screen as the screen selected under Lock Screen."
+        menu.addItem(touchHeader)
+        let touch = item("Smart Touchscreen Mode", #selector(smartTouchClicked))
+        touch.state = isEnabled(Self.smartTouchKey, on: lockScreen) ? .on : .off
+        touch.isEnabled = canLock
+        touch.toolTip = "While unlocked, a tap on the lock screen clicks what's under the finger in one go, then the pointer and keyboard focus return to where they were. The mouse can't enter the touch screen and the pointer stays hidden there. Lets someone use the touch screen while you keep working."
+        touch.indentationLevel = 1
+        menu.addItem(touch)
+
+        let scroll = item("Touch Drag Scrolls", #selector(dragToScrollClicked))
+        scroll.state = isEnabled(Self.dragToScrollKey, on: lockScreen) ? .on : .off
+        scroll.isEnabled = lockScreen != nil
+        scroll.toolTip = "On the touch screen, dragging a finger scrolls instead of selecting text. A tap still clicks; to select or drag things, hold the finger still for a moment first."
+        scroll.indentationLevel = 1
+        menu.addItem(scroll)
+
+        let adjust = item("Touchscreen Adjust", #selector(touchAdjustClicked))
+        adjust.state = touchAdjust(on: lockScreen) ? .on : .off
+        adjust.isEnabled = canLock
+        adjust.toolTip = "macOS sometimes sends a touch screen's taps to the main display. This moves them onto the lock screen, at the matching spot. On by default when a USB touch screen is connected."
+        adjust.indentationLevel = 1
+        menu.addItem(adjust)
+
+        menu.addItem(.separator())
+        if locker.isLocked {
+            let awake = NSMenuItem(title: "Keeping Display Awake (while locked)", action: nil, keyEquivalent: "")
+            awake.state = .on
+            awake.isEnabled = false
+            awake.toolTip = "While locked, the display never sleeps and the screen saver and idle password lock don't start."
+            menu.addItem(awake)
+        } else {
+            let awake = item("Keep Display Awake", #selector(keepAwakeClicked))
+            awake.state = keepAwakeManually ? .on : .off
+            awake.toolTip = "Keep the display awake (no screen saver, display sleep or idle password lock) without locking the pointer. Always on while locked. Resets when MouseLock restarts."
+            menu.addItem(awake)
+        }
 
         menu.addItem(.separator())
         let login = item("Start at Login", #selector(startAtLoginClicked))
