@@ -6,6 +6,8 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-22
+
 ### Added
 
 - On a laptop with external screens, a menu to put each external screen
@@ -158,7 +160,8 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.2.8...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/mwolf-net/mouselock/compare/v0.2.8...v0.3.0
 [0.2.8]: https://github.com/mwolf-net/mouselock/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/mwolf-net/mouselock/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/mwolf-net/mouselock/compare/v0.2.5...v0.2.6
