@@ -182,8 +182,10 @@ final class AboutWindow {
             so notifications don't pop up on the shared screen.
             """)
         option("Two-finger gestures", """
-            Many touch screens start a two-finger gesture with a click where the \
-            first finger lands, so begin pinches and swipes on an empty spot.
+            With Touchscreen Adjust on, pinch does nothing and two-finger swiping \
+            scrolls. Many touch screens start a two-finger gesture with a click where \
+            the first finger lands, though, so begin a swipe on an empty spot, not on \
+            a button.
             """)
 
         text.append(NSAttributedString(string: "\n"))
