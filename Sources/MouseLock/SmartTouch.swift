@@ -24,11 +24,15 @@ final class SmartTouch {
     /// (Apps such as Chrome ignore clicks while inactive, so they have to be
     /// activated briefly.)
     private static let restoreDelay: TimeInterval = 0.15
+    /// How long after restoring focus to check that it took.
+    private static let checkDelay: TimeInterval = 0.1
 
     /// Where the pointer was before it came to the touch screen.
     private var home: CGPoint?
     /// Focus to restore after a burst of taps.
     private var savedFocus: Focus?
+    /// The app tapped on the touch screen during a burst of taps.
+    private var touchedPID: pid_t?
     private var restoreWork: DispatchWorkItem?
     /// Whether a press on the touch screen hasn't been released yet.
     private var tapInProgress = false
@@ -62,6 +66,7 @@ final class SmartTouch {
             restoreWork?.cancel()
             restoreWork = nil
             savedFocus = nil
+            touchedPID = nil
             held = []
             tapInProgress = false
             parked = false
@@ -138,7 +143,9 @@ final class SmartTouch {
             restoreWork = nil
             if savedFocus == nil { savedFocus = currentFocus() }
 
-            guard let target = windowAt(point), !isFocused(target) else {
+            let target = windowAt(point)
+            if let target { touchedPID = target.pid }
+            guard let target, !isFocused(target) else {
                 log("tap at \(point): window already focused")
                 return pass
             }
@@ -242,11 +249,62 @@ final class SmartTouch {
             }
         }
         pointerOnScreen = screen.map { CGDisplayBounds($0).contains(pointerLocation()) } ?? false
-        if let savedFocus, !isFocused(savedFocus) {
+        if let savedFocus, let touchedPID, touchedPID != savedFocus.pid,
+           secureInputPID() == touchedPID {
+            // A tap in a password field: that's for typing, so leave the
+            // keyboard with it.
+            log("password field in pid \(touchedPID); leaving the keyboard there")
+        } else if let savedFocus, !isFocused(savedFocus) {
             log("restoring focus to pid \(savedFocus.pid)")
             focus(savedFocus)
+            if let touchedPID, touchedPID != savedFocus.pid {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Self.checkDelay) { [weak self] in
+                    self?.checkRestored(savedFocus, touched: touchedPID)
+                }
+            }
         }
         savedFocus = nil
+        touchedPID = nil
+    }
+
+    /// Focusing via the Accessibility API doesn't always take. In particular,
+    /// when a password field in the touched app gets focus around the time
+    /// focus is restored (say a dialog that opens a little late), that app
+    /// keeps the keyboard and secure input while the other app is frontmost.
+    /// A password field is for typing, so then hand the keyboard to it
+    /// properly; otherwise try again to restore focus, the normal way.
+    /// Either way MouseLock activates itself first, so the app losing focus
+    /// notices.
+    private func checkRestored(_ target: Focus, touched: pid_t) {
+        // A new tap in the meantime will restore focus itself.
+        guard savedFocus == nil, !tapInProgress else { return }
+        let holder = secureInputPID()
+        let focused = isFocused(target)
+        log("focus check: focused \(focused), secure input pid \(holder.map(String.init) ?? "none")")
+        let pid: pid_t
+        if holder == touched {
+            log("password field in pid \(touched); giving it the keyboard")
+            pid = touched
+        } else if !focused {
+            log("focus didn't take; activating pid \(target.pid)")
+            pid = target.pid
+        } else {
+            return
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        NSRunningApplication(processIdentifier: pid)?.activate()
+        if pid == target.pid { focus(target) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.checkDelay) { [weak self] in
+            guard let self else { return }
+            log("after activating pid \(pid): frontmost \(NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0), "
+                + "secure input pid \(secureInputPID().map(String.init) ?? "none")")
+        }
+    }
+
+    /// The process that has secure input (keyboard entry) on, if any.
+    private func secureInputPID() -> pid_t? {
+        let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+        return (session?["kCGSSessionSecureInputPID"] as? NSNumber).map { pid_t($0.int32Value) }
     }
 
     // MARK: Focus via the Accessibility API

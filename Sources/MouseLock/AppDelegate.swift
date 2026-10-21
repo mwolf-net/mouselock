@@ -298,7 +298,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let touch = item("Smart Touchscreen Mode", #selector(smartTouchClicked))
         touch.state = isEnabled(Self.smartTouchKey, on: lockScreen) ? .on : .off
         touch.isEnabled = canLock
-        touch.toolTip = "While unlocked, a tap on the lock screen clicks what's under the finger in one go, then the pointer and keyboard focus return to where they were. The mouse can't enter the touch screen and the pointer stays hidden there. Lets someone use the touch screen while you keep working."
+        touch.toolTip = "While unlocked, a tap on the lock screen clicks what's under the finger in one go, then the pointer and keyboard focus return to where they were. The mouse can't enter the touch screen and the pointer stays hidden there. Lets someone use the touch screen while you keep working. A tap in a password field keeps the keyboard, so a PIN can be typed."
         touch.indentationLevel = 1
         menu.addItem(touch)
 

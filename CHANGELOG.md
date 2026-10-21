@@ -11,6 +11,17 @@ All notable changes to MouseLock are listed here. The format follows
 - Touch Drag Scrolls is now on by default when a USB touch screen is
   connected, like Touchscreen Adjust. Screens where it was already turned on
   keep it.
+- Smart Touchscreen Mode: a tap in a password field now keeps the keyboard,
+  so a PIN can be typed on the touch screen. Click your own window to get it
+  back.
+
+### Fixed
+
+- Smart Touchscreen Mode: after a tap that put a password field in focus
+  (such as a button opening a PIN dialog), keyboard focus could stay on the
+  touch screen although your own app was in front, and the browser kept
+  secure input on, blocking keyboard tools. MouseLock now checks that focus
+  really went back, and tries again if not.
 
 ## [0.2.7] - 2026-10-21
 

@@ -42,6 +42,8 @@ hotkey instead of restarting the browser.
     then the pointer and keyboard focus go straight back to where they were.
     The mouse can't enter the touch screen, and the pointer stays hidden
     there. Someone can use the touch screen while you keep working on yours.
+    A tap in a password field keeps the keyboard, so a PIN can be typed;
+    click your own window to get it back.
   - **Touch Drag Scrolls**: dragging a finger scrolls instead of selecting
     text. A tap still clicks; holding the finger still for a moment before
     dragging selects or drags as usual. On by default when a USB touch

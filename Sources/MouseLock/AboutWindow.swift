@@ -126,7 +126,8 @@ final class AboutWindow {
             returns to your screen. Your mouse can't wander onto the touch screen, and \
             the pointer stays hidden there; it returns to where it was as soon as you \
             move the mouse. To deliver a tap, the app on the touch screen is activated \
-            for a moment.
+            for a moment. A tap in a password field keeps the keyboard, so a PIN can \
+            be typed; click your own window to get it back.
             """)
         option("Touch Drag Scrolls", """
             Dragging one finger scrolls the page, as on a phone, instead of selecting \
