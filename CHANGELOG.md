@@ -6,6 +6,12 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Touch Drag Scrolls is now on by default when a USB touch screen is
+  connected, like Touchscreen Adjust. Screens where it was already turned on
+  keep it.
+
 ## [0.2.7] - 2026-10-21
 
 ### Added

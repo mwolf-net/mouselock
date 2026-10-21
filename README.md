@@ -44,7 +44,8 @@ hotkey instead of restarting the browser.
     there. Someone can use the touch screen while you keep working on yours.
   - **Touch Drag Scrolls**: dragging a finger scrolls instead of selecting
     text. A tap still clicks; holding the finger still for a moment before
-    dragging selects or drags as usual.
+    dragging selects or drags as usual. On by default when a USB touch
+    screen is connected.
   - **Touchscreen Adjust**: macOS sometimes sends a touch screen's taps to
     the main display instead, and doesn't rotate them when the screen is
     rotated (System Settings -> Displays -> Rotation, say for a portrait

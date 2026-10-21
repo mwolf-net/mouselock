@@ -23,24 +23,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // per key), so they're off for any screen not seen before.
     static let hidePointerKey = "hidePointerScreens"
     static let smartTouchKey = "smartTouchScreens"
-    static let dragToScrollKey = "dragToScrollScreens"
 
     func isEnabled(_ key: String, on display: CGDirectDisplayID?) -> Bool {
         guard let display, let uuid = displayUUID(display) else { return false }
         return UserDefaults.standard.stringArray(forKey: key)?.contains(uuid) ?? false
     }
 
-    /// Touchscreen Adjust: on by default when a USB touch screen is connected,
-    /// unless the user picked on or off for this screen.
+    // Touchscreen Adjust and Touch Drag Scrolls: on by default when a USB
+    // touch screen is connected, unless the user picked on or off for this
+    // screen (stored as display UUID -> Bool per key).
     static let touchAdjustKey = "touchscreenAdjust"
+    static let dragScrollsKey = "touchDragScrolls"
+    /// Touch Drag Scrolls used to be off by default and stored as a
+    /// set of display UUIDs where it was turned on.
+    static let oldDragToScrollKey = "dragToScrollScreens"
 
-    func touchAdjust(on display: CGDirectDisplayID?) -> Bool {
+    func touchDefault(_ key: String, on display: CGDirectDisplayID?) -> Bool {
         if let display, let uuid = displayUUID(display),
-           let choices = UserDefaults.standard.dictionary(forKey: Self.touchAdjustKey) as? [String: Bool],
+           let choices = UserDefaults.standard.dictionary(forKey: key) as? [String: Bool],
            let choice = choices[uuid] {
             return choice
         }
+        if key == Self.dragScrollsKey, isEnabled(Self.oldDragToScrollKey, on: display) {
+            return true
+        }
         return TouchInput.touchScreenConnected()
+    }
+
+    func toggleTouchDefault(_ key: String, on display: CGDirectDisplayID?) {
+        guard let display, let uuid = displayUUID(display) else { return }
+        var choices = UserDefaults.standard.dictionary(forKey: key) as? [String: Bool] ?? [:]
+        choices[uuid] = !touchDefault(key, on: display)
+        UserDefaults.standard.set(choices, forKey: key)
+    }
+
+    func touchAdjust(on display: CGDirectDisplayID?) -> Bool {
+        touchDefault(Self.touchAdjustKey, on: display)
+    }
+
+    func dragScrolls(on display: CGDirectDisplayID?) -> Bool {
+        touchDefault(Self.dragScrollsKey, on: display)
     }
 
     func toggle(_ key: String, on display: CGDirectDisplayID?) {
@@ -161,7 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // the lock screen, which is where a touch screen would be.
         touchInput.touchScreen = lockScreen
         touchInput.remap = touchAdjust(on: lockScreen)
-        touchInput.dragToScroll = isEnabled(Self.dragToScrollKey, on: lockScreen)
+        touchInput.dragToScroll = dragScrolls(on: lockScreen)
         // The touch screen's two-finger tap is a right-click: block it like
         // other right-clicks, both while locked and in smart touch mode.
         touchInput.blockRightClick = blockExtraButtons
@@ -281,9 +303,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(touch)
 
         let scroll = item("Touch Drag Scrolls", #selector(dragToScrollClicked))
-        scroll.state = isEnabled(Self.dragToScrollKey, on: lockScreen) ? .on : .off
+        scroll.state = dragScrolls(on: lockScreen) ? .on : .off
         scroll.isEnabled = lockScreen != nil
-        scroll.toolTip = "On the touch screen, dragging a finger scrolls instead of selecting text. A tap still clicks; to select or drag things, hold the finger still for a moment first."
+        scroll.toolTip = "On the touch screen, dragging a finger scrolls instead of selecting text. A tap still clicks; to select or drag things, hold the finger still for a moment first. On by default when a USB touch screen is connected."
         scroll.indentationLevel = 1
         menu.addItem(scroll)
 
@@ -372,10 +394,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func touchAdjustClicked() {
-        guard let lockScreen, let uuid = displayUUID(lockScreen) else { return }
-        var choices = UserDefaults.standard.dictionary(forKey: Self.touchAdjustKey) as? [String: Bool] ?? [:]
-        choices[uuid] = !touchAdjust(on: lockScreen)
-        UserDefaults.standard.set(choices, forKey: Self.touchAdjustKey)
+        toggleTouchDefault(Self.touchAdjustKey, on: lockScreen)
         updateState()
     }
 
@@ -385,7 +404,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func dragToScrollClicked() {
-        toggle(Self.dragToScrollKey, on: lockScreen)
+        toggleTouchDefault(Self.dragScrollsKey, on: lockScreen)
         updateState()
     }
 

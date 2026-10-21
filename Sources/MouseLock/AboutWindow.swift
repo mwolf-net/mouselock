@@ -131,7 +131,8 @@ final class AboutWindow {
         option("Touch Drag Scrolls", """
             Dragging one finger scrolls the page, as on a phone, instead of selecting \
             text. A tap still clicks; to select text or drag something, hold the \
-            finger still for a moment before dragging.
+            finger still for a moment before dragging. On by default when a USB \
+            touch screen is connected.
             """)
         option("Touchscreen Adjust", """
             Puts touches where the finger is. macOS sometimes sends a touch screen's \
