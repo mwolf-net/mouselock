@@ -16,7 +16,7 @@ enum ScreenArrangement {
     enum Placement: Equatable {
         /// In the row, just left of this screen.
         case leftOf(CGDirectDisplayID)
-        /// At the right end of the row, right of this screen.
+        /// In the row, just right of this screen.
         case rightOf(CGDirectDisplayID)
         case above(CGDirectDisplayID)
 
@@ -61,9 +61,19 @@ enum ScreenArrangement {
         }
         let name = { (id: CGDirectDisplayID) in displays.first { $0.id == id }?.name ?? "Screen \(id)" }
 
-        var placements = layout.row.map { (Placement.leftOf($0), "Left of \(name($0))") }
-        if let last = layout.row.last {
-            placements.append((.rightOf(last), "Right of \(name(last))"))
+        // Each gap in the row once: left of the screen after it, or right of
+        // the one before it if that's the laptop (which leads) or there's
+        // none after it.
+        let builtin = displays.first(where: \.isBuiltin)?.id
+        var placements: [(Placement, String)] = []
+        for gap in 0...layout.row.count {
+            let before = gap > 0 ? layout.row[gap - 1] : nil
+            let after = gap < layout.row.count ? layout.row[gap] : nil
+            if let before, before == builtin || after == nil {
+                placements.append((.rightOf(before), "Right of \(name(before))"))
+            } else if let after {
+                placements.append((.leftOf(after), "Left of \(name(after))"))
+            }
         }
         // A screen with another above it stays in the row (with that one).
         if layout.above[screen] == nil {
@@ -73,7 +83,6 @@ enum ScreenArrangement {
         let current = Dictionary(uniqueKeysWithValues: displays.map { ($0.id, CGDisplayBounds($0.id)) })
         // Grouped by the screen they're relative to: the laptop's first, then
         // the others left to right, bottom to top.
-        let builtin = displays.first(where: \.isBuiltin)?.id
         let screenOrder = displays.map(\.id).sorted { a, b in
             if (a == builtin) != (b == builtin) { return a == builtin }
             let fa = current[a]!, fb = current[b]!
@@ -83,13 +92,22 @@ enum ScreenArrangement {
             let ia = screenOrder.firstIndex(of: a.0.screen)!, ib = screenOrder.firstIndex(of: b.0.screen)!
             return ia != ib ? ia < ib : a.0.order < b.0.order
         }
-        return placements.map { placement, title in
-            let frames = self.frames(of: layout.placing(screen, placement))
-            let isCurrent = frames.allSatisfy { id, frame in
-                guard let now = current[id] else { return false }
-                return abs(now.minX - frame.minX) < 1 && abs(now.minY - frame.minY) < 1
-            }
-            return Option(placement: placement, title: title, isCurrent: isCurrent)
+        // The current one is the closest to where the screen is now (seen
+        // from the laptop's screen, as either may be the main display),
+        // unless it's off by more than a third of the screen's size.
+        let now = current[screen]!
+        let anchor = builtin.flatMap { current[$0]?.origin } ?? .zero
+        let distances = placements.map { placement, _ in
+            let frames = frames(of: layout.placing(screen, placement))
+            let frame = frames[screen]!
+            let laptop = builtin.flatMap { frames[$0]?.origin } ?? .zero
+            return hypot(frame.minX - laptop.x - (now.minX - anchor.x),
+                         frame.minY - laptop.y - (now.minY - anchor.y))
+        }
+        let closest = distances.indices.min { distances[$0] < distances[$1] }
+        let isClose = closest.map { distances[$0] <= min(now.width, now.height) / 3 } ?? false
+        return placements.indices.map { i in
+            Option(placement: placements[i].0, title: placements[i].1, isCurrent: isClose && i == closest)
         }
     }
 
