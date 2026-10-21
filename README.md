@@ -59,6 +59,9 @@ hotkey instead of restarting the browser.
 - **Sensible default lock screen:** the external display on a laptop, or the
   screen the pointer isn't on when MouseLock starts. A screen picked in the
   menu is remembered.
+- **Position the external screen** left of, right of or above a laptop's
+  built-in screen from the menu (with exactly one external screen), instead
+  of dragging it around in System Settings -> Displays -> Arrange.
 - Start at login. No Dock icon, no windows, no network access.
 
 ## Requirements

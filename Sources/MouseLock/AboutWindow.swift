@@ -145,6 +145,12 @@ final class AboutWindow {
             """)
 
         heading("Other")
+        option("Position", """
+            On a laptop with one external screen: puts that screen left of, right of \
+            or above the laptop's, as in System Settings > Displays > Arrange. Left \
+            and right line up the bottoms of the screens; above centres it. Handy \
+            when you move between desks.
+            """)
         option("Keep Display Awake", """
             Prevents display sleep, the screen saver and the idle password lock, \
             without locking the pointer. Always on while locked. Resets when \

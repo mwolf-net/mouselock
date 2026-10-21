@@ -6,6 +6,12 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- On a laptop with one external screen, a menu to put that screen left of,
+  right of or above the built-in screen, as in System Settings > Displays >
+  Arrange. Left and right line up the bottoms; above centres it.
+
 ## [0.2.8] - 2026-10-22
 
 ### Changed
