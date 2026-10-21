@@ -6,6 +6,8 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-10-22
+
 ### Changed
 
 - Touch Drag Scrolls is now on by default when a USB touch screen is
@@ -14,6 +16,8 @@ All notable changes to MouseLock are listed here. The format follows
 - Smart Touchscreen Mode: a tap in a password field now keeps the keyboard,
   so a PIN can be typed on the touch screen. Click your own window to get it
   back.
+- The About window's tip on two-finger gestures now says what Touchscreen
+  Adjust does with them.
 
 ### Fixed
 
@@ -147,7 +151,8 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.2.7...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.2.8...HEAD
+[0.2.8]: https://github.com/mwolf-net/mouselock/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/mwolf-net/mouselock/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/mwolf-net/mouselock/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/mwolf-net/mouselock/compare/v0.2.4...v0.2.5
