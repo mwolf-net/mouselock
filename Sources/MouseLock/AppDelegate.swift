@@ -317,19 +317,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(adjust)
 
         menu.addItem(.separator())
-        if let (builtin, external) = ScreenArrangement.laptopAndExternal() {
-            let position = NSMenuItem(title: "Position \(external.name)", action: nil, keyEquivalent: "")
-            position.toolTip = "Arrange the external screen next to or above the laptop's, as in System Settings > Displays > Arrange."
-            let submenu = NSMenu()
-            let current = ScreenArrangement.current(builtin: builtin.id, external: external.id)
-            for option in ScreenPosition.allCases {
-                let entry = item("\(option.title) \(builtin.name)", #selector(positionClicked(_:)))
-                entry.representedObject = option
-                entry.state = option == current ? .on : .off
-                submenu.addItem(entry)
+        if let (_, externals) = ScreenArrangement.laptopAndExternals() {
+            for external in externals {
+                let position = NSMenuItem(title: "Position \(external.name)", action: nil, keyEquivalent: "")
+                let submenu = NSMenu()
+                for option in ScreenArrangement.options(for: external.id, among: displays) {
+                    let entry = item(option.title, #selector(positionClicked(_:)))
+                    entry.representedObject = PositionChoice(screen: external.id, placement: option.placement)
+                    entry.state = option.isCurrent ? .on : .off
+                    submenu.addItem(entry)
+                }
+                position.submenu = submenu
+                menu.addItem(position)
             }
-            position.submenu = submenu
-            menu.addItem(position)
             menu.addItem(.separator())
         }
         if locker.isLocked {
@@ -387,10 +387,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func toggleClicked() { toggle() }
 
+    struct PositionChoice {
+        let screen: CGDirectDisplayID
+        let placement: ScreenArrangement.Placement
+    }
+
     @objc func positionClicked(_ sender: NSMenuItem) {
-        guard let position = sender.representedObject as? ScreenPosition,
-              let (builtin, external) = ScreenArrangement.laptopAndExternal() else { return }
-        ScreenArrangement.place(external.id, position, relativeTo: builtin.id)
+        guard let choice = sender.representedObject as? PositionChoice else { return }
+        ScreenArrangement.place(choice.screen, choice.placement, among: Display.all().map(\.id))
     }
 
     @objc func keepDockOffClicked() {
