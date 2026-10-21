@@ -6,6 +6,16 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Ctrl+Option+Cmd+S turns Smart Touchscreen Mode on or off, with a brief
+  popup saying which.
+- The Keep Display Awake menu item shows what happens first when the Mac is
+  left alone, such as "display off after 10 min", or that a laptop with its
+  lid closed on battery will sleep ("clamshell"), or that the display stays
+  on anyway (because of your settings, or another app such as a video
+  playing).
+
 ## [0.3.0] - 2026-10-22
 
 ### Added

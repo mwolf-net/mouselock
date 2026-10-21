@@ -26,3 +26,9 @@ func CGSSetConnectionProperty(_ connection: CGSConnectionID, _ target: CGSConnec
 // that sent the event. Not in the public CGEventField enum, but stable for
 // years; TouchInput uses it to tell touch screen input from the mouse.
 let senderIDField = CGEventField(rawValue: 87)!
+
+// The power settings in effect (per power source: "AC Power", "Battery
+// Power"), as `pmset -g` shows them; there's no public call to read them.
+// Only used to describe in the menu when the display will sleep.
+@_silgen_name("IOPMCopyActivePMPreferences")
+func IOPMCopyActivePMPreferences() -> Unmanaged<CFDictionary>?

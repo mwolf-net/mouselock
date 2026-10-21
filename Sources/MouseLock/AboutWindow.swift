@@ -120,7 +120,7 @@ final class AboutWindow {
             """)
 
         heading("Touchscreen")
-        option("Smart Touchscreen Mode", """
+        option("Smart Touchscreen Mode (Ctrl+Option+Cmd+S)", """
             While unlocked: a tap on the touch screen clicks what's under the finger \
             in one go, even in a window that isn't active, and then keyboard focus \
             returns to your screen. Your mouse can't wander onto the touch screen, and \
@@ -157,7 +157,9 @@ final class AboutWindow {
             MouseLock restarts. It only prevents sleep from inactivity: a laptop \
             still goes to sleep when you close the lid on battery power (keeping it \
             running with the lid closed needs the power adapter), or when the battery \
-            runs low.
+            runs low. The menu also shows what happens first when the Mac is left \
+            alone, or that the display stays on anyway (because of your settings, or \
+            another app such as a video playing).
             """)
         option("Start at Login", "Starts MouseLock automatically when you log in.")
 

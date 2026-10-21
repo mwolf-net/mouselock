@@ -37,11 +37,12 @@ hotkey instead of restarting the browser.
   - Hide the pointer, showing a brief crosshair where clicks land. Meant for
     touch screens, so it's set per screen and starts off for a new one.
 - **Touch screen support** for a touch screen as the lock screen:
-  - **Smart Touchscreen Mode**: while unlocked, a tap on the touch screen
-    clicks what's under the finger (in one tap, even in an inactive window),
-    then the pointer and keyboard focus go straight back to where they were.
-    The mouse can't enter the touch screen, and the pointer stays hidden
-    there. Someone can use the touch screen while you keep working on yours.
+  - **Smart Touchscreen Mode** (Ctrl+Opt+Cmd+S): while unlocked, a tap on
+    the touch screen clicks what's under the finger (in one tap, even in an
+    inactive window), then the pointer and keyboard focus go straight back
+    to where they were. The mouse can't enter the touch screen, and the
+    pointer stays hidden there. Someone can use the touch screen while you
+    keep working on yours.
     A tap in a password field keeps the keyboard, so a PIN can be typed;
     click your own window to get it back.
   - **Touch Drag Scrolls**: dragging a finger scrolls instead of selecting
@@ -125,8 +126,11 @@ Click the pointer icon in the menu bar:
 - **Lock Screen**: the display the pointer gets locked to.
 - **Lock Pointer / Unlock Pointer** (Ctrl+Opt+Cmd+L): toggles the lock.
   Locking needs at least two screens.
+- **Smart Touchscreen Mode** (Ctrl+Opt+Cmd+S): toggles it for the lock
+  screen.
 - **Keep Display Awake**: keeps the display awake without locking (it always
-  is while locked). Resets when MouseLock restarts. It only prevents sleep
+  is while locked). The menu also shows what happens first when idle,
+  such as "display off after 10 min", or that the display stays on anyway. Resets when MouseLock restarts. It only prevents sleep
   from inactivity: a laptop still sleeps when its lid is closed on battery
   power (running with the lid closed needs the power adapter), or when the
   battery runs low.

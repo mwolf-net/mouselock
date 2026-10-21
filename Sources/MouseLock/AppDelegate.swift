@@ -8,6 +8,9 @@ let hotKeyModifiers = UInt32(controlKey | optionKey | cmdKey)
 // The same shortcut, for display in the menu.
 let hotKeyEquivalent = "l"
 let hotKeyEquivalentModifiers: NSEvent.ModifierFlags = [.control, .option, .command]
+// Hotkey that toggles Smart Touchscreen Mode: Ctrl+Option+Cmd+S.
+let smartTouchHotKeyCode = UInt32(kVK_ANSI_S)
+let smartTouchHotKeyEquivalent = "s"
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let locker = Locker()
@@ -18,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let clickMarker = ClickMarker()
     let smartTouch = SmartTouch()
     let touchInput = TouchInput()
+    let toast = Toast()
 
     // Touch-screen settings are stored per screen (as a set of display UUIDs
     // per key), so they're off for any screen not seen before.
@@ -298,6 +302,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let touch = item("Smart Touchscreen Mode", #selector(smartTouchClicked))
         touch.state = isEnabled(Self.smartTouchKey, on: lockScreen) ? .on : .off
         touch.isEnabled = canLock
+        touch.keyEquivalent = smartTouchHotKeyEquivalent
+        touch.keyEquivalentModifierMask = hotKeyEquivalentModifiers
         touch.toolTip = "While unlocked, a tap on the lock screen clicks what's under the finger in one go, then the pointer and keyboard focus return to where they were. The mouse can't enter the touch screen and the pointer stays hidden there. Lets someone use the touch screen while you keep working. A tap in a password field keeps the keyboard, so a PIN can be typed."
         touch.indentationLevel = 1
         menu.addItem(touch)
@@ -339,9 +345,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             awake.toolTip = "While locked, the display never sleeps and the screen saver and idle password lock don't start."
             menu.addItem(awake)
         } else {
-            let awake = item("Keep Display Awake", #selector(keepAwakeClicked))
+            // Say what happens when idle, or that the display stays on
+            // anyway (settings, or another app keeping it awake).
+            let firstEvent = StayAwake.firstIdleEvent()
+            let note = firstEvent ?? (keepAwakeManually ? nil : "display stays on")
+            let awake = item("Keep Display Awake" + (note.map { " (\($0))" } ?? ""),
+                             #selector(keepAwakeClicked))
             awake.state = keepAwakeManually ? .on : .off
-            awake.toolTip = "Keep the display awake (no screen saver, display sleep or idle password lock) without locking the pointer. Always on while locked. Resets when MouseLock restarts. Doesn't stop a laptop sleeping when its lid is closed on battery power."
+            awake.toolTip = "Keep the display awake (no screen saver, display sleep or idle password lock) without locking the pointer. Always on while locked. Resets when MouseLock restarts. Also shows what happens first when the Mac is left alone, or that the display stays on anyway (because of your settings, or another app such as a video playing). Doesn't stop a laptop sleeping when its lid is closed on battery power."
             menu.addItem(awake)
         }
 
@@ -423,9 +434,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateState()
     }
 
-    @objc func smartTouchClicked() {
+    @objc func smartTouchClicked() { toggleSmartTouch() }
+
+    /// From the menu or the hotkey. Needs a second screen, like locking.
+    func toggleSmartTouch() {
+        guard canLock, lockScreen != nil else {
+            NSSound.beep()
+            return
+        }
         toggle(Self.smartTouchKey, on: lockScreen)
         updateState()
+    }
+
+    /// The hotkey: as the menu, and say what it did, as there's no menu to see.
+    func smartTouchHotKey() {
+        guard canLock, lockScreen != nil else { return toggleSmartTouch() }
+        toggleSmartTouch()
+        toast.show("Smart Touchscreen Mode " + (isEnabled(Self.smartTouchKey, on: lockScreen) ? "On" : "Off"))
     }
 
     @objc func dragToScrollClicked() {
@@ -523,14 +548,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func registerHotKey() {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetApplicationEventTarget(), { _, _, userData in
+        InstallEventHandler(GetApplicationEventTarget(), { _, event, userData in
             let delegate = Unmanaged<AppDelegate>.fromOpaque(userData!).takeUnretainedValue()
-            delegate.toggle()
+            var id = EventHotKeyID()
+            GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
+                              nil, MemoryLayout<EventHotKeyID>.size, nil, &id)
+            if id.id == 2 {
+                delegate.smartTouchHotKey()
+            } else {
+                delegate.toggle()
+            }
             return noErr
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), nil)
 
         var ref: EventHotKeyRef?
-        let id = EventHotKeyID(signature: OSType(0x4D4C_434B), id: 1) // 'MLCK'
-        RegisterEventHotKey(hotKeyCode, hotKeyModifiers, id, GetApplicationEventTarget(), 0, &ref)
+        let signature = OSType(0x4D4C_434B) // 'MLCK'
+        RegisterEventHotKey(hotKeyCode, hotKeyModifiers, EventHotKeyID(signature: signature, id: 1),
+                            GetApplicationEventTarget(), 0, &ref)
+        var smartTouchRef: EventHotKeyRef?
+        RegisterEventHotKey(smartTouchHotKeyCode, hotKeyModifiers, EventHotKeyID(signature: signature, id: 2),
+                            GetApplicationEventTarget(), 0, &smartTouchRef)
     }
 }
