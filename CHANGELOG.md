@@ -6,6 +6,8 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-22
+
 ### Added
 
 - Ctrl+Option+Cmd+S turns Smart Touchscreen Mode on or off, with a brief
@@ -170,7 +172,8 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/mwolf-net/mouselock/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/mwolf-net/mouselock/compare/v0.2.8...v0.3.0
 [0.2.8]: https://github.com/mwolf-net/mouselock/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/mwolf-net/mouselock/compare/v0.2.6...v0.2.7
