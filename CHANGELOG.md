@@ -6,6 +6,12 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Screen positioning also works without a built-in screen (a laptop with
+  its lid closed, or a desktop Mac): options are then relative to the main
+  display first.
+
 ## [0.4.0] - 2026-10-22
 
 ### Added

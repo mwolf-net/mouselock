@@ -1,10 +1,11 @@
 import CoreGraphics
 
-/// Placing a laptop's external screens, as in System Settings > Displays >
-/// Arrange. The arrangement is seen as a row of screens, left to right with
-/// their bottoms aligned, plus at most one screen above each screen in the
-/// row, centred on it. An external screen can go anywhere in the row, or
-/// above a screen in the row.
+/// Placing screens around a primary one, as in System Settings > Displays >
+/// Arrange. The primary screen is a laptop's built-in screen, or else (lid
+/// closed, or a desktop Mac) the main display. The arrangement is seen as a
+/// row of screens, left to right with their bottoms aligned, plus at most
+/// one screen above each screen in the row, centred on it. Any other screen
+/// can go anywhere in the row, or above a screen in the row.
 enum ScreenArrangement {
     struct Layout {
         /// Left to right.
@@ -43,17 +44,17 @@ enum ScreenArrangement {
         let isCurrent: Bool
     }
 
-    /// The built-in screen and the external ones, if there is a built-in
-    /// screen and at least one external one.
-    static func laptopAndExternals() -> (builtin: Display, externals: [Display])? {
-        let displays = Display.all()
-        guard let builtin = displays.first(where: \.isBuiltin) else { return nil }
-        let externals = displays.filter { !$0.isBuiltin }
-        return externals.isEmpty ? nil : (builtin, externals)
+    /// The primary screen and the others, if there are at least two.
+    static func primaryAndOthers(of displays: [Display]) -> (primary: Display, others: [Display])? {
+        guard let primary = displays.first(where: \.isBuiltin)
+                ?? displays.first(where: { $0.id == CGMainDisplayID() }) else { return nil }
+        let others = displays.filter { $0.id != primary.id }
+        return others.isEmpty ? nil : (primary, others)
     }
 
     /// Where `screen` can go, given the current arrangement of `displays`.
     static func options(for screen: CGDirectDisplayID, among displays: [Display]) -> [Option] {
+        let primary = primaryAndOthers(of: displays)?.primary.id
         var layout = currentLayout(of: displays.map(\.id))
         layout.row.removeAll { $0 == screen }
         if let base = layout.above.first(where: { $0.value == screen })?.key {
@@ -62,14 +63,13 @@ enum ScreenArrangement {
         let name = { (id: CGDirectDisplayID) in displays.first { $0.id == id }?.name ?? "Screen \(id)" }
 
         // Each gap in the row once: left of the screen after it, or right of
-        // the one before it if that's the laptop (which leads) or there's
-        // none after it.
-        let builtin = displays.first(where: \.isBuiltin)?.id
+        // the one before it if that's the primary screen (which leads) or
+        // there's none after it.
         var placements: [(Placement, String)] = []
         for gap in 0...layout.row.count {
             let before = gap > 0 ? layout.row[gap - 1] : nil
             let after = gap < layout.row.count ? layout.row[gap] : nil
-            if let before, before == builtin || after == nil {
+            if let before, before == primary || after == nil {
                 placements.append((.rightOf(before), "Right of \(name(before))"))
             } else if let after {
                 placements.append((.leftOf(after), "Left of \(name(after))"))
@@ -81,10 +81,10 @@ enum ScreenArrangement {
                 .map { (.above($0), "Above \(name($0))") }
         }
         let current = Dictionary(uniqueKeysWithValues: displays.map { ($0.id, CGDisplayBounds($0.id)) })
-        // Grouped by the screen they're relative to: the laptop's first, then
+        // Grouped by the screen they're relative to: the primary first, then
         // the others left to right, bottom to top.
         let screenOrder = displays.map(\.id).sorted { a, b in
-            if (a == builtin) != (b == builtin) { return a == builtin }
+            if (a == primary) != (b == primary) { return a == primary }
             let fa = current[a]!, fb = current[b]!
             return fa.minX != fb.minX ? fa.minX < fb.minX : fa.maxY > fb.maxY
         }
@@ -93,16 +93,16 @@ enum ScreenArrangement {
             return ia != ib ? ia < ib : a.0.order < b.0.order
         }
         // The current one is the closest to where the screen is now (seen
-        // from the laptop's screen, as either may be the main display),
+        // from the primary screen, as either may be the main display),
         // unless it's off by more than a third of the screen's size.
         let now = current[screen]!
-        let anchor = builtin.flatMap { current[$0]?.origin } ?? .zero
+        let anchor = primary.flatMap { current[$0]?.origin } ?? .zero
         let distances = placements.map { placement, _ in
             let frames = frames(of: layout.placing(screen, placement))
             let frame = frames[screen]!
-            let laptop = builtin.flatMap { frames[$0]?.origin } ?? .zero
-            return hypot(frame.minX - laptop.x - (now.minX - anchor.x),
-                         frame.minY - laptop.y - (now.minY - anchor.y))
+            let origin = primary.flatMap { frames[$0]?.origin } ?? .zero
+            return hypot(frame.minX - origin.x - (now.minX - anchor.x),
+                         frame.minY - origin.y - (now.minY - anchor.y))
         }
         let closest = distances.indices.min { distances[$0] < distances[$1] }
         let isClose = closest.map { distances[$0] <= min(now.width, now.height) / 3 } ?? false

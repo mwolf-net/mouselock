@@ -323,13 +323,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(adjust)
 
         menu.addItem(.separator())
-        if let (_, externals) = ScreenArrangement.laptopAndExternals() {
-            for external in externals {
-                let position = NSMenuItem(title: "Position \(external.name)", action: nil, keyEquivalent: "")
+        if let (_, others) = ScreenArrangement.primaryAndOthers(of: displays) {
+            for screen in others {
+                let position = NSMenuItem(title: "Position \(screen.name)", action: nil, keyEquivalent: "")
                 let submenu = NSMenu()
-                for option in ScreenArrangement.options(for: external.id, among: displays) {
+                for option in ScreenArrangement.options(for: screen.id, among: displays) {
                     let entry = item(option.title, #selector(positionClicked(_:)))
-                    entry.representedObject = PositionChoice(screen: external.id, placement: option.placement)
+                    entry.representedObject = PositionChoice(screen: screen.id, placement: option.placement)
                     entry.state = option.isCurrent ? .on : .off
                     submenu.addItem(entry)
                 }

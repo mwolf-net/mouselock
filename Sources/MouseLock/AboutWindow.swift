@@ -146,10 +146,12 @@ final class AboutWindow {
 
         heading("Other")
         option("Position", """
-            On a laptop with external screens: puts an external screen left of, \
-            right of or above another screen, as in System Settings > Displays > \
-            Arrange. Screens side by side line up their bottoms; a screen above \
-            another is centred on it. Handy when you move between desks.
+            With more than one screen: puts a screen left of, right of or above \
+            another, as in System Settings > Displays > Arrange. Options are listed \
+            relative to the laptop's own screen first, or with the lid closed, to \
+            the main display (the one with the menu bar). Screens side by side line \
+            up their bottoms; a screen above another is centred on it. Handy when you \
+            move between desks.
             """)
         option("Keep Display Awake", """
             Prevents display sleep, the screen saver and the idle password lock, \
