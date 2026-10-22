@@ -6,6 +6,12 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Screen positioning: a screen above another that's narrower than it could
+  overlap a taller screen next to it, or the screen above that one. It now
+  moves sideways (or up) to a free spot.
+
 ## [0.4.1] - 2026-10-22
 
 ### Changed

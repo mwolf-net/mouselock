@@ -175,11 +175,30 @@ enum ScreenArrangement {
             let size = CGDisplayBounds(id).size
             frames[id] = CGRect(x: x, y: -size.height, width: size.width, height: size.height)
             x += size.width
-            if let top = layout.above[id] {
-                let base = frames[id]!
-                let topSize = CGDisplayBounds(top).size
-                frames[top] = CGRect(x: (base.midX - topSize.width / 2).rounded(), y: base.minY - topSize.height,
-                                     width: topSize.width, height: topSize.height)
+        }
+        // Each screen above is centred on its screen in the row, unless that
+        // overlaps a screen already placed (one above the next screen, or a
+        // taller screen next to it, when it's wider than its own): then the
+        // nearest free spot sideways that's still over its own screen, or
+        // failing that, higher up.
+        for id in layout.row {
+            guard let top = layout.above[id] else { continue }
+            let base = frames[id]!
+            let size = CGDisplayBounds(top).size
+            let y = base.minY - size.height
+            let centred = (base.midX - size.width / 2).rounded()
+            let isFree = { (x: CGFloat) in
+                let frame = CGRect(x: x, y: y, width: size.width, height: size.height)
+                return !frames.values.contains { $0.intersects(frame) }
+            }
+            let candidates = [centred] + frames.values.flatMap { [$0.minX - size.width, $0.maxX] }
+            if let x = candidates.filter({ $0 < base.maxX && $0 + size.width > base.minX && isFree($0) })
+                .min(by: { abs($0 - centred) < abs($1 - centred) }) {
+                frames[top] = CGRect(x: x, y: y, width: size.width, height: size.height)
+            } else {
+                let span = CGRect(x: centred, y: -1e6, width: size.width, height: 2e6)
+                let highest = frames.values.filter { $0.intersects(span) }.map(\.minY).min() ?? y
+                frames[top] = CGRect(x: centred, y: highest - size.height, width: size.width, height: size.height)
             }
         }
         guard let main = frames[CGMainDisplayID()] else { return frames }
