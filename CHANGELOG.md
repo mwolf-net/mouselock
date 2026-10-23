@@ -6,6 +6,8 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-23
+
 ### Changed
 
 - Window Grid: 6 cells along each screen's short side by default (was 4),
@@ -267,7 +269,8 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/mwolf-net/mouselock/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/mwolf-net/mouselock/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/mwolf-net/mouselock/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/mwolf-net/mouselock/compare/v0.5.0...v0.6.0
