@@ -32,13 +32,13 @@ hotkey instead of restarting the browser.
 ### Windows
 
 - **Window Grid** (Ctrl+Opt+Cmd+W): divides each screen into roughly square
-  cells (4 along its short side, or as chosen under Window Grid Size), and
+  cells (6 along its short side, or as chosen under Window Grid Size), and
   snaps a window you resize or move to them. Windows against an edge you
   drag follow it, and windows you drag onto make room, without affecting
   windows further along; outlines show it all while you drag. Hold Control
   once dragging to skip all of that, or press Esc to put the window back
-  when you let go. New windows open small, in free space near the middle or
-  else on top. Turning the grid on arranges all windows on the cells without
+  when you let go. New windows go into free space at the size they want (or
+  as much as fits), or else open small on top. Turning the grid on arranges all windows on the cells without
   overlapping.
 
 ### Between screens

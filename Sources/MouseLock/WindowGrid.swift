@@ -2,7 +2,7 @@ import AppKit
 import Carbon.HIToolbox
 
 /// Window Grid: each screen's usable area (without menu bar and Dock) is
-/// divided into roughly square cells, 4 along its short side by default
+/// divided into roughly square cells, 6 along its short side by default
 /// (Window Grid Size in the menu). While it's on,
 /// a window that was resized has the edges that moved snapped to the nearest
 /// grid lines, and one that was moved lines up with them; a preview shows
@@ -11,7 +11,7 @@ import Carbon.HIToolbox
 final class WindowGrid {
     /// Cells along each screen's short side (menu choice, remembered).
     static var cellsAlongShortSide: Int {
-        get { UserDefaults.standard.object(forKey: "gridCellsAlongShortSide") as? Int ?? 4 }
+        get { UserDefaults.standard.object(forKey: "gridCellsAlongShortSide") as? Int ?? 6 }
         set { UserDefaults.standard.set(newValue, forKey: "gridCellsAlongShortSide") }
     }
     static let sizeChoices = Array(2...10)
@@ -172,17 +172,19 @@ final class WindowGrid {
         }
     }
 
-    /// Puts a new window on the screen with the pointer, at its smallest size
-    /// or one cell, whichever is larger, on the grid: in the free spot
-    /// closest to the middle; with none free, on top of other windows where
-    /// it hides the smallest share of any one of them (partly covering
-    /// several rather than hiding one). It never pushes others aside.
+    /// Puts a new window on the grid of the screen with the pointer. In free
+    /// space: at the size it opened at, rounded to whole cells, or as much of
+    /// that as fits (at least its smallest size, and one cell), nearest the
+    /// middle. With no free space: at its smallest size, on top of other
+    /// windows where it hides the smallest share of any one of them (partly
+    /// covering several rather than hiding one). It never pushes others aside.
     private func place(_ window: AXUIElement) {
         var subrole: CFTypeRef?
         AXUIElementCopyAttributeValue(window, kAXSubroleAttribute as CFString, &subrole)
         let pointer = pointerLocation()
         let areas = Self.usableAreas()
         guard enabled, (subrole as? String) == kAXStandardWindowSubrole as String, Self.isResizable(window),
+              !Self.isNewTab(window),
               let frame = axFrame(window), frame.width >= 100, frame.height >= 60,
               let area = areas.first(where: { $0.contains(pointer) }) ?? Self.area(for: frame, areas: areas)
         else { return }
@@ -205,16 +207,46 @@ final class WindowGrid {
                 && Self.overlapArea(other.frame, area) > 0
         }.map(\.frame)
 
-        // Score each spot: the largest share of one window it hides, then the
-        // total area it covers, then how far it is from the middle.
+        func spot(_ left: Int, _ top: Int, _ columns: Int, _ rows: Int) -> CGRect {
+            CGRect(x: grid.xs[left], y: grid.ys[top], width: grid.xs[left + columns] - grid.xs[left],
+                   height: grid.ys[top + rows] - grid.ys[top])
+        }
+        let middle = { (rect: CGRect) in hypot(rect.midX - area.midX, rect.midY - area.midY) }
+
+        // In free space: the size it opened at (in whole cells) if that fits,
+        // else as much of it as does; the largest such spot, nearest the middle.
+        let wantedColumns = min(grid.xs.count - 1, max(columns, Int((frame.width / cell.width).rounded())))
+        let wantedRows = min(grid.ys.count - 1, max(rows, Int((frame.height / cell.height).rounded())))
+        var free: (rect: CGRect, score: (CGFloat, CGFloat))?
+        for width in columns...wantedColumns {
+            for height in rows...wantedRows {
+                for left in 0...(grid.xs.count - 1 - width) {
+                    for top in 0...(grid.ys.count - 1 - height) {
+                        let rect = spot(left, top, width, height)
+                        guard !others.contains(where: { Self.overlapArea($0, rect) > 1 }) else { continue }
+                        let score = (-rect.width * rect.height, middle(rect))
+                        if free.map({ score < $0.score }) ?? true { free = (rect, score) }
+                    }
+                }
+            }
+        }
+        if let target = free?.rect {
+            log("new window \(frame), smallest \(smallest); into free space at \(target)")
+            Self.fit(window, into: target, anchoring: [.left, .top])
+            AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+            return
+        }
+
+        // No free space: at its smallest, on top. Score each spot: the largest
+        // share of one window it hides, then the total area it covers, then
+        // how far it is from the middle.
         var best: (rect: CGRect, score: (CGFloat, CGFloat, CGFloat))?
         for left in 0...(grid.xs.count - 1 - columns) {
             for top in 0...(grid.ys.count - 1 - rows) {
-                let rect = CGRect(x: grid.xs[left], y: grid.ys[top], width: grid.xs[left + columns] - grid.xs[left],
-                                  height: grid.ys[top + rows] - grid.ys[top])
+                let rect = spot(left, top, columns, rows)
                 let covered = others.map { Self.overlapArea($0, rect) }
                 let share = zip(others, covered).map { $1 / max(1, $0.width * $0.height) }.max() ?? 0
-                let score = (share, covered.reduce(0, +), hypot(rect.midX - area.midX, rect.midY - area.midY))
+                let score = (share, covered.reduce(0, +), middle(rect))
                 if best.map({ score < $0.score }) ?? true { best = (rect, score) }
             }
         }
@@ -222,6 +254,22 @@ final class WindowGrid {
         log("new window \(frame), smallest \(smallest); placed at \(target)")
         Self.fit(window, into: target, anchoring: [.left, .top])
         AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+    }
+
+    /// Whether `window` is a tab added to an existing window: with macOS's
+    /// own window tabs (Terminal, Finder) each tab is a window of its own,
+    /// sharing the frame, so placing it would resize the whole group. It then
+    /// has a tab bar with at least two tabs.
+    private static func isNewTab(_ window: AXUIElement) -> Bool {
+        var children: CFTypeRef?
+        AXUIElementCopyAttributeValue(window, kAXChildrenAttribute as CFString, &children)
+        return (children as? [AXUIElement] ?? []).contains { child in
+            var role: CFTypeRef?, tabs: CFTypeRef?
+            AXUIElementCopyAttributeValue(child, kAXRoleAttribute as CFString, &role)
+            guard (role as? String) == kAXTabGroupRole as String else { return false }
+            AXUIElementCopyAttributeValue(child, kAXTabsAttribute as CFString, &tabs)
+            return (tabs as? [AXUIElement])?.count ?? 0 >= 2
+        }
     }
 
     // MARK: Pushing and pulling
@@ -582,12 +630,18 @@ final class WindowGrid {
 
     /// Each screen's usable area, in global coordinates (top left origin).
     static func usableAreas() -> [CGRect] {
+        usableScreens().map(\.area)
+    }
+
+    /// Each screen's name and usable area, main screen first.
+    static func usableScreens() -> [(name: String, area: CGRect)] {
         // AppKit's coordinates have their origin at the bottom left of the
         // first screen (the one with the menu bar).
         guard let height = NSScreen.screens.first?.frame.height else { return [] }
         return NSScreen.screens.map { screen in
             let visible = screen.visibleFrame
-            return CGRect(x: visible.minX, y: height - visible.maxY, width: visible.width, height: visible.height)
+            return (screen.localizedName,
+                    CGRect(x: visible.minX, y: height - visible.maxY, width: visible.width, height: visible.height))
         }
     }
 

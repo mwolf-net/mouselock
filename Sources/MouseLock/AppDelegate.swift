@@ -287,16 +287,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         grid.state = windowGridOn ? .on : .off
         grid.keyEquivalent = windowGridHotKeyEquivalent
         grid.keyEquivalentModifierMask = hotKeyEquivalentModifiers
-        grid.toolTip = "Divides each screen into roughly square cells, as many as chosen under Window Grid Size. A window you resize or move snaps to the nearest cell edges, with an outline showing where while you drag. Turning it on also snaps all windows on screen to the cells, moving and resizing each as little as possible. Windows against a dragged edge follow it; windows you drag onto make room. Hold Control while dragging to skip all this, or press Esc to put the window back. New windows open small, in free space or on top."
+        grid.toolTip = "Divides each screen into roughly square cells, as many as chosen under Window Grid Size. A window you resize or move snaps to the nearest cell edges, with an outline showing where while you drag. Turning it on also snaps all windows on screen to the cells, moving and resizing each as little as possible. Windows against a dragged edge follow it; windows you drag onto make room. Hold Control while dragging to skip all this, or press Esc to put the window back. New windows go into free space at the size they want (or as much as fits), or else open small on top."
         menu.addItem(grid)
         // Sizes as each screen's columns × rows, main screen first.
         let sizes = NSMenuItem(title: "Window Grid Size", action: nil, keyEquivalent: "")
         let sizeMenu = NSMenu()
-        let areas = WindowGrid.usableAreas()
+        let screens = WindowGrid.usableScreens()
         for cells in WindowGrid.sizeChoices {
-            let title = areas.map { area in
-                let (columns, rows) = WindowGrid.dimensions(of: area, cells: cells)
-                return "\(columns)×\(rows)"
+            let title = screens.map { screen in
+                let (columns, rows) = WindowGrid.dimensions(of: screen.area, cells: cells)
+                return "\(columns)×\(rows) on \(screen.name)"
             }.joined(separator: "  ·  ")
             let entry = item(title, #selector(gridSizeClicked(_:)))
             entry.representedObject = cells

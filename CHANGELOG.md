@@ -6,6 +6,19 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Window Grid: 6 cells along each screen's short side by default (was 4),
+  unless you picked a size. Window Grid Size names each screen.
+- Window Grid: a new window that fits into free space gets the size it
+  opened at (rounded to whole cells), or as much of it as fits, instead of
+  its smallest size.
+
+### Fixed
+
+- Window Grid: a new tab in Terminal or Finder (which macOS makes a window
+  of its own) no longer shrinks and moves the window it's a tab of.
+
 ## [0.8.0] - 2026-10-23
 
 ### Added

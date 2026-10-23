@@ -89,16 +89,18 @@ final class AboutWindow {
             the window goes back where it was when you let go.
             """)
         paragraph("""
-            A new window opens at its smallest size, at least one cell, on the screen \
-            with the pointer: in free space near the middle, or else on top, covering \
-            as little as possible of any one window. Turning the grid on, or starting \
+            A new window opens on the screen with the pointer. If there's free space, \
+            it goes there at the size it opened at, rounded to whole cells, or as much \
+            of that as fits, near the middle. If not, it opens at its smallest size, \
+            at least one cell, on top, covering as little as possible of any one \
+            window. Turning the grid on, or starting \
             MouseLock with it on, arranges all windows on the cells without \
             overlapping, each moving and resizing as little as possible, unless the \
             free space would leave one less than half its size.
             """)
         option("Window Grid Size", """
-            How many cells: 4 along each screen's short side by default. Each choice \
-            shows the resulting columns × rows per screen, main screen first.
+            How many cells: 6 along each screen's short side by default. Each choice \
+            shows the resulting columns × rows on each screen.
             """)
 
         heading("Between Screens")
