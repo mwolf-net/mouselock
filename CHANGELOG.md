@@ -8,10 +8,17 @@ All notable changes to MouseLock are listed here. The format follows
 
 ### Changed
 
+- Smart Touchscreen Mode and Touch Drag Scrolls tell touches from the
+  mouse by the device they come from, wherever they land, so they're plain
+  on/off settings (no longer per screen) and work on a single shared
+  screen too. Settings carry over.
 - The touch screen is chosen on its own, under Touch Screen in the menu,
-  instead of being the lock screen. By default it's the screen you turned
-  Smart Touchscreen Mode on for, so you don't need Lock Options to use a
-  touch screen.
+  instead of being the lock screen. It's only needed for Touchscreen
+  Adjust.
+- Smart Touchscreen Mode no longer keeps the mouse off the touch screen:
+  mouse and touch can be used interchangeably. After a tap the pointer
+  stays hidden where the finger was, and goes back to where you left it as
+  soon as you use the mouse.
 - Lock Pointer names the lock screen ("Lock Pointer to …"), and while locked
   "Unlock Pointer (from …)".
 

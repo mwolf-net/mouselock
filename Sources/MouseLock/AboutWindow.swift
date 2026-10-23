@@ -144,24 +144,18 @@ final class AboutWindow {
 
         heading("Touchscreen")
         paragraph("""
-            For a touch screen, so someone can use it by touch while your own mouse \
-            and keyboard stay on your screen.
-            """)
-        option("Touch Screen", """
-            Which screen is the touch screen; the options below apply to it. A touch \
-            screen's touch part is a separate USB device, so MouseLock can't tell \
-            which screen it is by itself: it assumes the screen you turned Smart \
-            Touchscreen Mode on for, unless you pick one here, which is remembered \
-            whenever that screen is connected.
+            So someone can use a touch screen by touch while your own mouse and \
+            keyboard carry on, on a separate touch screen or on a single shared one. \
+            Touches are told apart from the mouse by the device they come from.
             """)
         option("Smart Touchscreen Mode (Ctrl+Option+Cmd+S)", """
-            While unlocked: a tap on the touch screen clicks what's under the finger \
-            in one go, even in a window that isn't active, and then keyboard focus \
-            returns to your screen. Your mouse can't wander onto the touch screen, and \
-            the pointer stays hidden there; it returns to where it was as soon as you \
-            move the mouse. To deliver a tap, the app on the touch screen is activated \
-            for a moment. A tap in a password field keeps the keyboard, so a PIN can \
-            be typed; click your own window to get it back.
+            While unlocked: a tap clicks what's under the finger in one go, even in a \
+            window that isn't active, and then keyboard focus goes back to where it \
+            was. The pointer stays hidden where the finger was (so a menu the tap \
+            opened stays open), and goes back to where you left it as soon as you use \
+            the mouse; mouse and touch can be used interchangeably. To deliver a tap, \
+            the app under the finger is activated for a moment. A tap in a password field keeps the \
+            keyboard, so a PIN can be typed; click your own window to get it back.
             """)
         option("Touch Drag Scrolls", """
             Dragging one finger scrolls the page, as on a phone, instead of selecting \
@@ -171,11 +165,16 @@ final class AboutWindow {
             """)
         option("Touchscreen Adjust", """
             Puts touches where the finger is. macOS sometimes sends a touch screen's \
-            taps to the main display, and doesn't rotate them when the screen is \
+            taps to another screen, and doesn't rotate them when the screen is \
             rotated (System Settings > Displays > Rotation). Also makes two-finger \
             scrolling scroll under the fingers, and ignores pinch, which many touch \
             screens send as screen-zoom key presses. On by default when a USB touch \
             screen is connected.
+            """)
+        option("Touch Screen", """
+            Which screen is the touch screen, where Touchscreen Adjust moves touches. \
+            A touch screen's touch part is a separate USB device, so MouseLock can't tell which screen it is \
+            by itself; a screen you pick is remembered whenever it's connected.
             """)
 
         heading("Lock")

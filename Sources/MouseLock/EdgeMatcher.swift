@@ -18,9 +18,6 @@ final class EdgeMatcher {
     var wrap = false {
         didSet { updateTap() }
     }
-    /// A screen to leave alone (the touch screen, which the mouse is kept off
-    /// in smart touch mode).
-    var excluded: CGDirectDisplayID?
     var isTouchEvent: ((CGEvent) -> Bool)?
 
     private var tap: CFMachPort?
@@ -124,9 +121,7 @@ final class EdgeMatcher {
             movePointer(to: mapped)
             return pass
         }
-        guard enabled, neighbours.count == 1, let target = neighbours.first,
-              excluded.map({ CGDisplayBounds($0) != target && CGDisplayBounds($0) != source }) ?? true
-        else { return pass }
+        guard enabled, neighbours.count == 1, let target = neighbours.first else { return pass }
 
         let fraction = min(max((to.y - source.minY) / source.height, 0), 1)
         let overshoot = goingRight ? to.x - source.maxX : to.x - source.minX
@@ -162,8 +157,7 @@ final class EdgeMatcher {
               abs((goingRight ? source.maxX : source.minX) - (goingRight ? right : left)) < 1 else { return nil }
         let candidates = screens.filter { abs((goingRight ? $0.minX : $0.maxX) - (goingRight ? left : right)) < 1 }
         let distance = { (screen: CGRect) in max(0, screen.minY - to.y, to.y - (screen.maxY - 1)) }
-        guard let target = candidates.min(by: { distance($0) < distance($1) }),
-              excluded.map({ CGDisplayBounds($0) != target }) ?? true else { return nil }
+        guard let target = candidates.min(by: { distance($0) < distance($1) }) else { return nil }
         let y = enabled
             ? target.minY + min(max((to.y - source.minY) / source.height, 0), 1) * target.height
             : to.y

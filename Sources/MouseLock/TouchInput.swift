@@ -46,7 +46,7 @@ final class TouchInput {
     /// Whether each sending device (by registry entry ID) is a touch screen.
     private var isTouchSender: [Int64: Bool] = [:]
     /// Marks the events we post ourselves, so our tap lets them through.
-    private static let replayMarker: Int64 = 0x4D4C_5449 // 'MLTI'
+    static let replayMarker: Int64 = 0x4D4C_5449 // 'MLTI'
 
     // Drag to scroll: a press is held back until it's clear whether it's a
     // tap (click), a drag (scroll) or a press-and-hold (normal drag).

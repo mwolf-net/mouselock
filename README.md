@@ -61,28 +61,32 @@ hotkey instead of restarting the browser.
 
 ### Touch screen
 
-For a touch screen, chosen under **Touch Screen** in the menu (by default
-the screen you turned Smart Touchscreen Mode on for):
+Touches are told apart from the mouse by the device they come from, so this
+works with a separate touch screen as well as a single shared one.
 
-- **Smart Touchscreen Mode** (Ctrl+Opt+Cmd+S): while unlocked, a tap on
-  the touch screen clicks what's under the finger (in one tap, even in an
-  inactive window), then the pointer and keyboard focus go straight back
-  to where they were. The mouse can't enter the touch screen, and the
-  pointer stays hidden there. Someone can use the touch screen while you
-  keep working on yours. A tap in a password field keeps the keyboard, so a
-  PIN can be typed; click your own window to get it back.
+- **Smart Touchscreen Mode** (Ctrl+Opt+Cmd+S): while unlocked, a tap
+  clicks what's under the finger (in one tap, even in an inactive window),
+  then keyboard focus goes straight back to where it was; the pointer stays
+  hidden where the finger was, and goes back to where you left it as soon
+  as you use the mouse. Someone can use the touch screen while you keep
+  working, and you can use mouse and touch interchangeably. A tap in a
+  password field keeps the keyboard, so a PIN can be typed; click your own
+  window to get it back.
 - **Touch Drag Scrolls**: dragging a finger scrolls instead of selecting
   text. A tap still clicks; holding the finger still for a moment before
   dragging selects or drags as usual. On by default when a USB touch
   screen is connected.
 - **Touchscreen Adjust**: macOS sometimes sends a touch screen's taps to
-  the main display instead, and doesn't rotate them when the screen is
+  another screen instead, and doesn't rotate them when the screen is
   rotated (System Settings -> Displays -> Rotation, say for a portrait
   wall mount). MouseLock puts them where the finger is. Many touch screens
   also turn two-finger gestures into mouse and keyboard input: MouseLock
   makes two-finger scrolling scroll under the fingers (the page following
   them), and ignores pinch, which arrives as screen-zoom key presses. On by
   default when a USB touch screen is connected.
+- **Touch Screen**: which screen is the touch screen, for Touchscreen
+  Adjust. MouseLock can't tell by itself,
+  since a touch screen's touch part is a separate USB device.
 
 ### Lock
 
@@ -180,9 +184,8 @@ Click the pointer icon in the menu bar. From top to bottom:
   Resets when MouseLock restarts. It only prevents sleep from inactivity: a
   laptop still sleeps when its lid is closed on battery power (running with
   the lid closed needs the power adapter), or when the battery runs low.
-- **Touch Screen**: which screen is the touch screen, followed by its
-  options: Smart Touchscreen Mode (Ctrl+Opt+Cmd+S), Touch Drag Scrolls and
-  Touchscreen Adjust.
+- **Touchscreen**: Smart Touchscreen Mode (Ctrl+Opt+Cmd+S), Touch Drag
+  Scrolls, Touchscreen Adjust, and which screen is the touch screen.
 - **Lock Pointer / Unlock Pointer** (Ctrl+Opt+Cmd+L): toggles the lock.
   Locking needs at least two screens.
 - **Lock Options**: which screen is the lock screen, and the options for

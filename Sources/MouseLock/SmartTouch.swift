@@ -1,16 +1,16 @@
 import AppKit
 
-/// Smart touchscreen mode: while unlocked, a tap on the touch screen is
-/// delivered as a normal click to the window under it, then the pointer and
-/// keyboard focus go back to where they were, so the main user on the other
-/// screen can carry on.
+/// Smart touchscreen mode: while unlocked, a tap by touch (told apart from
+/// the mouse by the device it comes from, wherever it lands) is delivered as
+/// a normal click to the window under it, then the pointer and keyboard focus
+/// go back to where they were, so whoever uses the mouse can carry on. That
+/// works on a single screen too.
 ///
 /// A click on an inactive window often only activates it, so a tap on a
 /// window that isn't focused is held back, the window is focused via the
 /// Accessibility API, and then the click is replayed.
 final class SmartTouch {
-    /// The touch screen; nil turns the mode off.
-    var screen: CGDirectDisplayID? {
+    var enabled = false {
         didSet { updateTap() }
     }
 
@@ -27,27 +27,25 @@ final class SmartTouch {
     /// How long after restoring focus to check that it took.
     private static let checkDelay: TimeInterval = 0.1
 
-    /// Where the pointer was before it came to the touch screen.
+    /// Where the mouse last put the pointer.
     private var home: CGPoint?
     /// Focus to restore after a burst of taps.
     private var savedFocus: Focus?
     /// The app tapped on the touch screen during a burst of taps.
     private var touchedPID: pid_t?
     private var restoreWork: DispatchWorkItem?
-    /// Whether a press on the touch screen hasn't been released yet.
+    /// Whether a touch press hasn't been released yet.
     private var tapInProgress = false
 
-    /// Whether the pointer is on the touch screen. In this mode it only goes
-    /// there on behalf of a touch, so the app hides it meanwhile.
-    private(set) var pointerOnScreen = false {
-        didSet { if pointerOnScreen != oldValue { onPointerOnScreenChanged?() } }
+    /// Whether a touch moved the pointer last (not the mouse since): it's
+    /// only there on behalf of the touch, so the app hides it meanwhile.
+    private(set) var pointerFromTouch = false {
+        didSet { if pointerFromTouch != oldValue { onPointerFromTouchChanged?() } }
     }
-    var onPointerOnScreenChanged: (() -> Void)?
+    var onPointerFromTouchChanged: (() -> Void)?
 
-    /// Keep the mouse and trackpad off the touch screen, so only touches go
-    /// there. Needs `isTouchEvent` to tell them apart.
-    var keepMouseOff = false
-    /// Whether the pointer was left on the touch screen after a touch.
+    /// Whether the pointer was left (hidden) where a touch put it, until the
+    /// mouse moves: that keeps hover effects, like a menu the tap opened.
     private var parked = false
     var isTouchEvent: ((CGEvent) -> Bool)?
     /// A press held back while its window gets focused, plus what followed it.
@@ -61,7 +59,7 @@ final class SmartTouch {
     /// Returns false if the event tap couldn't be created (no Accessibility permission).
     @discardableResult
     private func updateTap() -> Bool {
-        if screen == nil {
+        if !enabled {
             if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
             restoreWork?.cancel()
             restoreWork = nil
@@ -70,7 +68,7 @@ final class SmartTouch {
             held = []
             tapInProgress = false
             parked = false
-            pointerOnScreen = false
+            pointerFromTouch = false
             return true
         }
         guard let tap = ensureTap() else { return false }
@@ -107,37 +105,41 @@ final class SmartTouch {
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         let pass = Unmanaged.passUnretained(event)
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if screen != nil, let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            if enabled, let tap { CGEvent.tapEnable(tap: tap, enable: true) }
             return pass
         }
-        guard let screen, event.getIntegerValueField(.eventSourceUserData) != Self.replayMarker else {
-            return pass
-        }
+        let marker = event.getIntegerValueField(.eventSourceUserData)
+        guard enabled, marker != Self.replayMarker else { return pass }
         let point = event.location
-        let bounds = CGDisplayBounds(screen)
-        if keepMouseOff, bounds.contains(point), type == .mouseMoved || type == .leftMouseDragged,
-           !(isTouchEvent?(event) ?? true) {
-            // The mouse tried to move onto the touch screen: keep it off. If
-            // the pointer was parked there after a touch, send it home.
-            let stay = parked ? (home ?? pointOffTouchScreen(point, bounds: bounds))
-                : pointOffTouchScreen(point, bounds: bounds)
+        // Touches held back and replayed by TouchInput come from MouseLock,
+        // not the touch screen, but they're touches all the same.
+        let isTouch = marker == TouchInput.replayMarker || (isTouchEvent?(event) ?? false)
+        if parked, !isTouch, type == .mouseMoved || type == .leftMouseDragged || type == .leftMouseDown,
+           let home {
+            // The mouse moves on (or clicks) from where it left the pointer.
+            let moved = CGPoint(x: home.x + event.getDoubleValueField(.mouseEventDeltaX),
+                                y: home.y + event.getDoubleValueField(.mouseEventDeltaY))
             parked = false
-            event.location = stay
-            movePointer(to: stay)
-            home = stay
-            pointerOnScreen = false
+            event.location = moved
+            movePointer(to: moved)
+            self.home = moved
+            pointerFromTouch = false
             return pass
         }
-        let onTouchScreen = bounds.contains(point)
-        pointerOnScreen = onTouchScreen
+        if type == .mouseMoved || type == .leftMouseDragged || type == .leftMouseDown {
+            pointerFromTouch = isTouch
+        }
 
         switch type {
         case .mouseMoved:
-            if !onTouchScreen { home = point }
+            if !isTouch {
+                home = point
+                parked = false
+            }
             return pass
 
         case .leftMouseDown:
-            guard onTouchScreen else { return pass }
+            guard isTouch else { return pass }
             tapInProgress = true
             restoreWork?.cancel()
             restoreWork = nil
@@ -205,26 +207,8 @@ final class SmartTouch {
     /// A touch gesture that didn't click (such as a scroll) ended: send the
     /// pointer back, if this mode is on.
     func touchEnded() {
-        guard screen != nil else { return }
+        guard enabled else { return }
         scheduleRestore()
-    }
-
-    /// Where to keep the mouse when it tries to enter the touch screen at
-    /// `point`: slide along the edge where possible, else stay put.
-    private func pointOffTouchScreen(_ point: CGPoint, bounds: CGRect) -> CGPoint {
-        let main = CGDisplayBounds(CGMainDisplayID())
-        let from = home ?? CGPoint(x: main.midX, y: main.midY)
-        for candidate in [CGPoint(x: from.x, y: point.y), CGPoint(x: point.x, y: from.y)]
-        where !bounds.contains(candidate) && isOnSomeDisplay(candidate) {
-            return candidate
-        }
-        return from
-    }
-
-    private func isOnSomeDisplay(_ point: CGPoint) -> Bool {
-        var display = CGDirectDisplayID(0)
-        var count = UInt32(0)
-        return CGGetDisplaysWithPoint(point, 1, &display, &count) == .success && count > 0
     }
 
     private func scheduleRestore() {
@@ -236,19 +220,22 @@ final class SmartTouch {
 
     private func restore() {
         restoreWork = nil
-        // Only move the pointer if it's still on the touch screen (the main
-        // user may have moved the mouse away in the meantime). With the mouse
-        // kept off the touch screen, leave it parked there (hidden) instead,
-        // so hover effects like drop-down menus stay open: it goes home as
-        // soon as the mouse moves.
-        if let screen, let home, CGDisplayBounds(screen).contains(pointerLocation()) {
-            if keepMouseOff {
-                parked = true
-            } else {
-                movePointer(to: home)
-            }
+        // If a touch moved the pointer last (the mouse may have moved it
+        // since), leave it there, hidden, so hover effects like drop-down
+        // menus stay open: it goes home as soon as the mouse moves.
+        if pointerFromTouch, home != nil {
+            parked = true
         }
-        pointerOnScreen = screen.map { CGDisplayBounds($0).contains(pointerLocation()) } ?? false
+        // A tap may have opened a menu (say the app's menu bar): handing the
+        // keyboard back would deactivate the app, closing it. Wait till it's
+        // closed (an item picked, or dismissed).
+        if savedFocus != nil, Self.menuOpen() {
+            log("menu open; restoring focus once it's closed")
+            let work = DispatchWorkItem { [weak self] in self?.restore() }
+            restoreWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
+            return
+        }
         if let savedFocus, let touchedPID, touchedPID != savedFocus.pid,
            secureInputPID() == touchedPID {
             // A tap in a password field: that's for typing, so leave the
@@ -305,6 +292,18 @@ final class SmartTouch {
     private func secureInputPID() -> pid_t? {
         let session = CGSessionCopyCurrentDictionary() as? [String: Any]
         return (session?["kCGSSessionSecureInputPID"] as? NSNumber).map { pid_t($0.int32Value) }
+    }
+
+    /// Whether the frontmost app has a menu open: a window of its at the
+    /// level macOS uses for menus.
+    private static func menuOpen() -> Bool {
+        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+              let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]]
+        else { return false }
+        let menuLevel = Int(CGWindowLevelForKey(.popUpMenuWindow))
+        return list.contains { info in
+            (info[kCGWindowLayer as String] as? Int) == menuLevel && (info[kCGWindowOwnerPID as String] as? pid_t) == pid
+        }
     }
 
     // MARK: Focus via the Accessibility API
