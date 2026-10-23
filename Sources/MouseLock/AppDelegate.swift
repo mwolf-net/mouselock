@@ -11,6 +11,9 @@ let hotKeyEquivalentModifiers: NSEvent.ModifierFlags = [.control, .option, .comm
 // Hotkey that toggles Smart Touchscreen Mode: Ctrl+Option+Cmd+S.
 let smartTouchHotKeyCode = UInt32(kVK_ANSI_S)
 let smartTouchHotKeyEquivalent = "s"
+// Hotkey that toggles the window grid: Ctrl+Option+Cmd+W.
+let windowGridHotKeyCode = UInt32(kVK_ANSI_W)
+let windowGridHotKeyEquivalent = "w"
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let locker = Locker()
@@ -21,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let clickMarker = ClickMarker()
     let smartTouch = SmartTouch()
     let edgeMatcher = EdgeMatcher()
+    let windowGrid = WindowGrid()
     let touchInput = TouchInput()
     let toast = Toast()
 
@@ -88,6 +92,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var keepMenuBarHidden: Bool {
         get { UserDefaults.standard.bool(forKey: "keepMenuBarHiddenOnLockScreen") }
         set { UserDefaults.standard.set(newValue, forKey: "keepMenuBarHiddenOnLockScreen") }
+    }
+    /// Window Grid (menu toggle and hotkey, remembered, off by default).
+    var windowGridOn: Bool {
+        get { UserDefaults.standard.bool(forKey: "windowGrid") }
+        set { UserDefaults.standard.set(newValue, forKey: "windowGrid") }
     }
     /// Match Screen Edges (menu toggle, remembered, off by default).
     var matchScreenEdges: Bool {
@@ -210,6 +219,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Locked, the pointer stays on one screen anyway.
         edgeMatcher.excluded = smartTouch.keepMouseOff ? smartTouch.screen : nil
         edgeMatcher.enabled = matchScreenEdges && !locker.isLocked
+        windowGrid.enabled = windowGridOn
 
         let symbol = !AXIsProcessTrusted() ? "exclamationmark.triangle"
             : locker.isLocked ? "lock.fill"
@@ -353,6 +363,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(edges)
             menu.addItem(.separator())
         }
+        let grid = item("Window Grid", #selector(windowGridClicked))
+        grid.state = windowGridOn ? .on : .off
+        grid.keyEquivalent = windowGridHotKeyEquivalent
+        grid.keyEquivalentModifierMask = hotKeyEquivalentModifiers
+        grid.toolTip = "Divides each screen into roughly square cells, 8 along its short side. A window you resize snaps to the nearest cell edges. Turning it on also snaps all windows on screen to the cells, moving and resizing each as little as possible."
+        menu.addItem(grid)
         if locker.isLocked {
             let awake = NSMenuItem(title: "Keeping Display Awake (while locked)", action: nil, keyEquivalent: "")
             awake.state = .on
@@ -412,6 +428,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func toggleClicked() { toggle() }
+
+    @objc func windowGridClicked() { toggleWindowGrid() }
+
+    /// From the menu or the hotkey. Turning it on arranges the windows.
+    func toggleWindowGrid() {
+        windowGridOn.toggle()
+        updateState()
+        if windowGridOn { windowGrid.arrangeAll() }
+    }
 
     @objc func matchScreenEdgesClicked() {
         matchScreenEdges.toggle()
@@ -575,6 +600,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                               nil, MemoryLayout<EventHotKeyID>.size, nil, &id)
             if id.id == 2 {
                 delegate.smartTouchHotKey()
+            } else if id.id == 3 {
+                delegate.toggleWindowGrid()
+                delegate.toast.show("Window Grid " + (delegate.windowGridOn ? "On" : "Off"))
             } else {
                 delegate.toggle()
             }
@@ -588,5 +616,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var smartTouchRef: EventHotKeyRef?
         RegisterEventHotKey(smartTouchHotKeyCode, hotKeyModifiers, EventHotKeyID(signature: signature, id: 2),
                             GetApplicationEventTarget(), 0, &smartTouchRef)
+        var windowGridRef: EventHotKeyRef?
+        RegisterEventHotKey(windowGridHotKeyCode, hotKeyModifiers, EventHotKeyID(signature: signature, id: 3),
+                            GetApplicationEventTarget(), 0, &windowGridRef)
     }
 }

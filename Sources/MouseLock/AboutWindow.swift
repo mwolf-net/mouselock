@@ -161,6 +161,13 @@ final class AboutWindow {
             one of about the same size. Not for screens above one another, nor when \
             more than one screen sits on that side.
             """)
+        option("Window Grid (Ctrl+Option+Cmd+W)", """
+            Divides each screen (minus menu bar and Dock) into roughly square cells, \
+            8 along its short side. When you resize a window, the edges you moved \
+            snap to the nearest cell edges. Turning it on also snaps every window on \
+            screen to the cells, each edge to the nearest one, so windows move and \
+            change size as little as possible.
+            """)
         option("Keep Display Awake", """
             Prevents display sleep, the screen saver and the idle password lock, \
             without locking the pointer. Always on while locked. Resets when \

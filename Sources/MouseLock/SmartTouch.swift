@@ -331,20 +331,6 @@ final class SmartTouch {
         return nil
     }
 
-    /// The app's Accessibility window with the given frame.
-    private func axWindow(pid: pid_t, frame: CGRect) -> AXUIElement? {
-        let app = AXUIElementCreateApplication(pid)
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &value) == .success,
-              let windows = value as? [AXUIElement] else { return nil }
-        return windows.first { window in
-            guard let position = copyPoint(window, kAXPositionAttribute),
-                  let size = copySize(window, kAXSizeAttribute) else { return false }
-            return abs(position.x - frame.minX) < 2 && abs(position.y - frame.minY) < 2
-                && abs(size.width - frame.width) < 2 && abs(size.height - frame.height) < 2
-        }
-    }
-
     private func isFocused(_ target: Focus) -> Bool {
         guard let current = currentFocus(), current.pid == target.pid else { return false }
         guard let window = target.window else { return true }
@@ -358,31 +344,6 @@ final class SmartTouch {
             AXUIElementSetAttributeValue(window, kAXMainAttribute as CFString, kCFBooleanTrue)
             AXUIElementPerformAction(window, kAXRaiseAction as CFString)
         }
-    }
-
-    private func copyElement(_ element: AXUIElement, _ attribute: String) -> AXUIElement? {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
-              let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
-        return (value as! AXUIElement)
-    }
-
-    private func copyPoint(_ element: AXUIElement, _ attribute: String) -> CGPoint? {
-        var value: CFTypeRef?
-        var point = CGPoint.zero
-        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
-              let value, CFGetTypeID(value) == AXValueGetTypeID(),
-              AXValueGetValue(value as! AXValue, .cgPoint, &point) else { return nil }
-        return point
-    }
-
-    private func copySize(_ element: AXUIElement, _ attribute: String) -> CGSize? {
-        var value: CFTypeRef?
-        var size = CGSize.zero
-        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
-              let value, CFGetTypeID(value) == AXValueGetTypeID(),
-              AXValueGetValue(value as! AXValue, .cgSize, &size) else { return nil }
-        return size
     }
 
     private func log(_ message: String) {
