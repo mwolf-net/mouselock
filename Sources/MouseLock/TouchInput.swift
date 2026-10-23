@@ -117,6 +117,8 @@ final class TouchInput {
         guard let touchScreen, marker != Self.replayMarker, marker != SmartTouch.replayMarker,
               isTouchScreen(sender: event.getIntegerValueField(senderIDField)) else { return pass }
 
+        watchForStuckTouch(type)
+
         if remap {
             if let handled = adjustTwoFingerGesture(type: type, event: event, touchScreen: touchScreen) {
                 return handled
@@ -133,6 +135,27 @@ final class TouchInput {
             break
         }
         return dragToScroll ? handleGesture(type: type, event: event) : pass
+    }
+
+    /// A touch screen can report a press that never ends (something resting
+    /// on the glass, a firmware glitch), holding the button down for good. A
+    /// press with no touch input at all for this long is taken as stuck, and
+    /// released; if a finger really is there, lifting it just adds a release.
+    private static let stuckTouchTimeout: TimeInterval = 15
+    private var stuckTouchWork: DispatchWorkItem?
+
+    private func watchForStuckTouch(_ type: CGEventType) {
+        stuckTouchWork?.cancel()
+        stuckTouchWork = nil
+        guard type == .leftMouseDown || type == .leftMouseDragged else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard CGEventSource.buttonState(.combinedSessionState, button: .left) else { return }
+            self?.log("touch held still for \(Int(Self.stuckTouchTimeout))s; releasing it")
+            self?.gesture = .none
+            StuckButtons.release(.left)
+        }
+        stuckTouchWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.stuckTouchTimeout, execute: work)
     }
 
     /// The touch screen's firmware turns two-finger gestures into mouse and

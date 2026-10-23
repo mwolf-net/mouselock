@@ -21,6 +21,7 @@ func postMarked(_ event: CGEvent, marker: Int64) {
     }
     toPost.setIntegerValueField(.eventSourceUserData, value: marker)
     toPost.post(tap: .cghidEventTap)
+    StuckButtons.posted(toPost)
 }
 
 /// Set MOUSELOCK_DEBUG=1 to log clamping to stderr.

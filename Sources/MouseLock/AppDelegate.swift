@@ -208,6 +208,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         pointerHider.set(false)
+        StuckButtons.releaseAll()
     }
 
     func updateState() {

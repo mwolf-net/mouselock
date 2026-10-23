@@ -13,6 +13,16 @@ All notable changes to MouseLock are listed here. The format follows
   other way round. Also while dragging a window or a file, but not while
   resizing a window by its edge.
 
+### Fixed
+
+- A mouse button could stay down for good if a press MouseLock passed on
+  never got its release (say the touch screen unplugged mid-touch), so
+  clicks stopped working. MouseLock now releases its own presses once no
+  device holds the button, and releases a touch screen press with no touch
+  input at all for 15 seconds.
+- Quitting MouseLock with `kill` (or `pkill`) now quits it properly,
+  showing the pointer again and releasing any press it posted.
+
 ## [0.7.0] - 2026-10-23
 
 ### Added

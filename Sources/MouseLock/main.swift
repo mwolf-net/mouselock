@@ -16,6 +16,13 @@ if NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bu
     exit(0)
 }
 
+// Quit properly on SIGTERM (pkill, as `make run` does, or a logout): the
+// pointer is shown again and any press MouseLock posted is released.
+signal(SIGTERM, SIG_IGN)
+let terminationSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+terminationSource.setEventHandler { NSApp.terminate(nil) }
+terminationSource.resume()
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
