@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let pointerHider = PointerHider()
     let clickMarker = ClickMarker()
     let smartTouch = SmartTouch()
+    let edgeMatcher = EdgeMatcher()
     let touchInput = TouchInput()
     let toast = Toast()
 
@@ -88,6 +89,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         get { UserDefaults.standard.bool(forKey: "keepMenuBarHiddenOnLockScreen") }
         set { UserDefaults.standard.set(newValue, forKey: "keepMenuBarHiddenOnLockScreen") }
     }
+    /// Match Screen Edges (menu toggle, remembered, off by default).
+    var matchScreenEdges: Bool {
+        get { UserDefaults.standard.bool(forKey: "matchScreenEdges") }
+        set { UserDefaults.standard.set(newValue, forKey: "matchScreenEdges") }
+    }
     /// Block right-clicks and extra buttons while locked (menu toggle,
     /// remembered, on by default).
     var blockExtraButtons: Bool {
@@ -138,6 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         registerHotKey()
         checkAccessibilityPermission()
         smartTouch.isTouchEvent = { [touchInput] event in touchInput.isTouch(event) }
+        edgeMatcher.isTouchEvent = { [touchInput] event in touchInput.isTouch(event) }
         // Smart touch hides the pointer while it's on the touch screen.
         smartTouch.onPointerOnScreenChanged = { [weak self] in self?.updateState() }
         // In smart touch mode, a scroll also sends the pointer back.
@@ -157,6 +164,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             object: nil, queue: .main
         ) { [weak self] _ in
             self?.locker.refresh()
+            self?.edgeMatcher.refresh()
             self?.revalidateLockScreen()
         }
 
@@ -199,6 +207,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Keeping the mouse off the touch screen needs touches to be told
         // apart from the mouse, which works for USB touch screens.
         smartTouch.keepMouseOff = TouchInput.touchScreenConnected()
+        // Locked, the pointer stays on one screen anyway.
+        edgeMatcher.excluded = smartTouch.keepMouseOff ? smartTouch.screen : nil
+        edgeMatcher.enabled = matchScreenEdges && !locker.isLocked
 
         let symbol = !AXIsProcessTrusted() ? "exclamationmark.triangle"
             : locker.isLocked ? "lock.fill"
@@ -336,6 +347,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 position.submenu = submenu
                 menu.addItem(position)
             }
+            let edges = item("Match Screen Edges", #selector(matchScreenEdgesClicked))
+            edges.state = matchScreenEdges ? .on : .off
+            edges.toolTip = "When the pointer crosses between screens side by side, it lands at the same fraction of the height on the other screen, as if their corners touched. Helps when a Retina screen sits next to a lower resolution one of about the same size."
+            menu.addItem(edges)
             menu.addItem(.separator())
         }
         if locker.isLocked {
@@ -397,6 +412,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func toggleClicked() { toggle() }
+
+    @objc func matchScreenEdgesClicked() {
+        matchScreenEdges.toggle()
+        updateState()
+    }
 
     struct PositionChoice {
         let screen: CGDirectDisplayID

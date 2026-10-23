@@ -153,6 +153,14 @@ final class AboutWindow {
             up their bottoms; a screen above another is centred on it. Handy when you \
             move between desks.
             """)
+        option("Match Screen Edges", """
+            When the pointer crosses between two screens side by side, it lands at \
+            the same fraction of the height on the other screen, as if the screens' \
+            corners touched. Without it macOS keeps the pointer at the same height in \
+            points, which feels off with a Retina screen next to a lower resolution \
+            one of about the same size. Not for screens above one another, nor when \
+            more than one screen sits on that side.
+            """)
         option("Keep Display Awake", """
             Prevents display sleep, the screen saver and the idle password lock, \
             without locking the pointer. Always on while locked. Resets when \

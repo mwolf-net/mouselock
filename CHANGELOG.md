@@ -6,6 +6,12 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Match Screen Edges: the pointer crosses between screens side by side at
+  the same fraction of their height, as if their corners touched, instead
+  of at the same height in points.
+
 ### Fixed
 
 - Screen positioning: a screen above another that's narrower than it could

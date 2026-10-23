@@ -64,6 +64,9 @@ hotkey instead of restarting the browser.
   menu, instead of dragging them around in System Settings -> Displays ->
   Arrange. Relative to the laptop's own screen first, or with the lid
   closed (or on a desktop Mac), to the main display.
+- **Match Screen Edges**: the pointer crosses between screens side by side
+  at the same fraction of their height, as if their corners touched. Handy
+  for a Retina screen next to a lower resolution one of about the same size.
 - Start at login. No Dock icon, no windows, no network access.
 
 ## Requirements
