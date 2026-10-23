@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 
 /// Window Grid: each screen's usable area (without menu bar and Dock) is
 /// divided into roughly square cells, 4 along its short side by default
@@ -29,6 +30,12 @@ final class WindowGrid {
     /// change a window's frame during a mere click (say gvim fitting its
     /// size to whole characters just after opening).
     private var dragged = false
+    /// Esc pressed during this drag: on release the window goes back to
+    /// where it was, and nothing else changes.
+    private var aborted = false
+    /// Taps Esc, to abort a drag (an active tap, so it can keep that Esc
+    /// from the app).
+    private var keyTap: CFMachPort?
     private let preview = GridPreview()
     private var previewWork: DispatchWorkItem?
 
@@ -389,13 +396,60 @@ final class WindowGrid {
 
     private func updateTap() {
         pressed = nil
+        aborted = false
         preview.hide()
         if !enabled {
             if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
+            if let keyTap { CGEvent.tapEnable(tap: keyTap, enable: false) }
             return
         }
         guard let tap = ensureTap() else { return }
         CGEvent.tapEnable(tap: tap, enable: true)
+        if let keyTap = ensureKeyTap() { CGEvent.tapEnable(tap: keyTap, enable: true) }
+    }
+
+    private func ensureKeyTap() -> CFMachPort? {
+        if let keyTap { return keyTap }
+        let mask = (CGEventMask(1) << CGEventType.keyDown.rawValue) | (CGEventMask(1) << CGEventType.keyUp.rawValue)
+        let callback: CGEventTapCallBack = { _, type, event, refcon in
+            let grid = Unmanaged<WindowGrid>.fromOpaque(refcon!).takeUnretainedValue()
+            return grid.handleKey(type: type, event: event)
+        }
+        guard let keyTap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: mask,
+            callback: callback,
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else { return nil }
+
+        let source = CFMachPortCreateRunLoopSource(nil, keyTap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        self.keyTap = keyTap
+        return keyTap
+    }
+
+    /// Esc while a window is being moved or resized aborts that: the window
+    /// still follows the pointer (macOS's drag can't be stopped), but goes
+    /// back on release. That Esc is kept from the app; any other passes.
+    private func handleKey(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        let pass = Unmanaged.passUnretained(event)
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if enabled, let keyTap { CGEvent.tapEnable(tap: keyTap, enable: true) }
+            return pass
+        }
+        guard event.getIntegerValueField(.keyboardEventKeycode) == Int64(kVK_Escape),
+              let pressed, dragged else { return pass }
+        if aborted { return nil }
+        guard type == .keyDown, let now = Self.frame(of: pressed.number),
+              !Self.sameFrame(now, pressed.frame) else { return pass }
+        log("drag aborted; back to \(pressed.frame) on release")
+        aborted = true
+        previewWork?.cancel()
+        previewWork = nil
+        preview.show(pressed.frame)
+        return nil
     }
 
     private func ensureTap() -> CFMachPort? {
@@ -434,8 +488,19 @@ final class WindowGrid {
             pressed = Self.windowList().first { $0.frame.insetBy(dx: -8, dy: -8).contains(point) }
                 .map { ($0.number, $0.pid, $0.frame) }
             dragged = false
+            aborted = false
         case .leftMouseDragged:
             dragged = true
+            // Aborted: the outline stays on where the window goes back to.
+            if aborted { return }
+            // Control held: no snapping or pushing, so no preview either.
+            // (Pressed once dragging: held at the press, it makes a right-click.)
+            if event.flags.contains(.maskControl) {
+                previewWork?.cancel()
+                previewWork = nil
+                preview.hide()
+                return
+            }
             // Show where the window would snap, about 30 times a second at most.
             guard pressed != nil, previewWork == nil else { return }
             let work = DispatchWorkItem { [weak self] in
@@ -454,6 +519,16 @@ final class WindowGrid {
             preview.hide()
             guard let pressed, dragged else { self.pressed = nil; return }
             self.pressed = nil
+            if aborted {
+                aborted = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    guard let now = Self.frame(of: pressed.number),
+                          let element = axWindow(pid: pressed.pid, frame: now) else { return }
+                    setAXFrame(element, pressed.frame)
+                }
+                return
+            }
+            if event.flags.contains(.maskControl) { return }
             // Let the app finish the resize or move first.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
                 guard let self, enabled, let now = Self.frame(of: pressed.number),

@@ -69,10 +69,13 @@ hotkey instead of restarting the browser.
   for a Retina screen next to a lower resolution one of about the same size.
 - **Window Grid** (Ctrl+Opt+Cmd+W): divides each screen into roughly square
   cells (4 along its short side, or as chosen under Window Grid Size), and
-  snaps a window you resize or move to them, with an outline showing where
-  while you drag. Turning it on arranges all windows on the cells without
-  overlapping, each moving and resizing as little as possible. New windows
-  go into free space on the grid, or get half of the largest window's.
+  snaps a window you resize or move to them. Windows against an edge you
+  drag follow it, and windows you drag onto make room, without affecting
+  windows further along; outlines show it all while you drag. Hold Control
+  once dragging to skip all of that, or press Esc to put the window back
+  when you let go. New windows open small, in free space
+  near the middle or else on top. Turning the grid on arranges all windows
+  on the cells without overlapping.
 - Start at login. No Dock icon, no windows, no network access.
 
 ## Requirements

@@ -6,11 +6,27 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-23
+
 ### Added
 
-- Window Grid: a new window goes straight onto the grid, into free space if
-  there's enough, otherwise taking half of the largest window on its
-  screen.
+- Window Grid: a new window opens straight onto the grid at its smallest
+  size (at least one cell), on the screen with the pointer: in free space
+  near the middle, or else on top, covering as little as possible of any
+  one window. It never pushes other windows aside.
+- Window Grid: dragging pushes and pulls only the windows directly
+  involved. Windows against an edge you drag follow it, growing or
+  shrinking; windows you drag onto are trimmed on the side that costs them
+  least area, or move into free space.
+- Window Grid: the preview also outlines where other windows will go.
+- Window Grid: hold Control once you've started dragging to skip snapping
+  and pushing, or press Esc to put the window back where it was when you
+  let go.
+
+### Fixed
+
+- Window Grid: a click no longer counts as a drag when the app changes its
+  window's frame meanwhile.
 
 ## [0.6.0] - 2026-10-23
 
@@ -211,7 +227,8 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/mwolf-net/mouselock/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/mwolf-net/mouselock/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/mwolf-net/mouselock/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/mwolf-net/mouselock/compare/v0.4.0...v0.4.1

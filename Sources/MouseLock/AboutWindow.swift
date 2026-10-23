@@ -166,14 +166,20 @@ final class AboutWindow {
             4 along its short side, or as chosen under Window Grid Size (shown per \
             screen as columns × rows, main screen first). When you resize a window, \
             the edges you moved snap to the nearest cell edges; a window you move \
-            lines up with them. An outline shows where while you drag. Turning it on, \
-            or starting MouseLock with it on, arranges all windows on the cells \
-            without overlapping, front to back, each moving and resizing as little as \
-            possible. A window only overlaps others if the free space would leave it \
-            less than half its size. A new window goes into free space on the grid if \
-            there's enough; otherwise the largest window on that screen makes room by \
-            giving it half its space.
+            lines up with them. Windows against an edge you drag follow it, growing \
+            or shrinking, and windows you drag onto are trimmed on the side that \
+            costs them least, or move into free space; nothing further along \
+            changes. Outlines show all this while you drag. To drag without any of \
+            it, hold Control once you've started dragging (held before, it makes a \
+            right-click). Press Esc while dragging to call it off: the window goes \
+            back where it was when you let go. A new window opens at its smallest size, at least one cell, \
+            on the screen with the pointer: in free space near the middle, or else \
+            on top, covering as little as possible of any one window. Turning the \
+            grid on, or starting MouseLock with it on, arranges all windows on the \
+            cells without overlapping, each moving and resizing as little as \
+            possible, unless the free space would leave one less than half its size.
             """)
+
         option("Keep Display Awake", """
             Prevents display sleep, the screen saver and the idle password lock, \
             without locking the pointer. Always on while locked. Resets when \
