@@ -4,8 +4,9 @@ import IOKit
 /// Adjusts input from a USB touch screen (it reports as a mouse, so macOS
 /// otherwise treats touches as mouse clicks and drags):
 ///
-/// - Remapping: macOS sometimes maps a touch screen's input onto the main
-///   display, wherever the touch screen actually is. Such touches are moved
+/// - Remapping: macOS sometimes maps a touch screen's input onto another
+///   display (the main one, or another when the touch screen is main),
+///   wherever the touch screen actually is. Such touches are moved
 ///   onto the touch screen, keeping their relative position (10% from the
 ///   left of the main display becomes 10% from the left of the touch screen).
 ///   macOS also doesn't rotate touches along with a rotated touch screen, so
@@ -217,21 +218,17 @@ final class TouchInput {
     }
 
     private func remapToTouchScreen(_ event: CGEvent, touchScreen: CGDirectDisplayID) {
-        // Depending on how the screen is connected, macOS puts touches either
-        // on the touch screen or on the main display. Either way it scales
-        // the panel's own (unrotated) coordinates to that display, so a
-        // rotated touch screen also needs the rotation applied.
-        let main = CGDisplayBounds(CGMainDisplayID())
+        // Depending on how the screen is connected, macOS puts touches on the
+        // touch screen, on the main display, or (when the touch screen is the
+        // main display, say with a laptop's lid closed) on another screen.
+        // Either way it scales the panel's own (unrotated) coordinates to that
+        // display, so a rotated touch screen also needs the rotation applied.
         let target = CGDisplayBounds(touchScreen)
         let point = event.location
-        let source: CGRect
-        if target.contains(point) {
-            source = target
-        } else if main != target, main.contains(point) {
-            source = main
-        } else {
-            return
-        }
+        var landed = CGDirectDisplayID(0)
+        var count = UInt32(0)
+        guard CGGetDisplaysWithPoint(point, 1, &landed, &count) == .success, count > 0 else { return }
+        let source = CGDisplayBounds(landed)
         let rotation = Int(CGDisplayRotation(touchScreen).rounded())
         guard source != target || rotation % 360 != 0, source.width > 0, source.height > 0 else { return }
 

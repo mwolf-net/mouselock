@@ -61,7 +61,8 @@ hotkey instead of restarting the browser.
 
 ### Touch screen
 
-For a touch screen chosen as the lock screen:
+For a touch screen, chosen under **Touch Screen** in the menu (by default
+the screen you turned Smart Touchscreen Mode on for):
 
 - **Smart Touchscreen Mode** (Ctrl+Opt+Cmd+S): while unlocked, a tap on
   the touch screen clicks what's under the finger (in one tap, even in an
@@ -179,8 +180,9 @@ Click the pointer icon in the menu bar. From top to bottom:
   Resets when MouseLock restarts. It only prevents sleep from inactivity: a
   laptop still sleeps when its lid is closed on battery power (running with
   the lid closed needs the power adapter), or when the battery runs low.
-- **Touchscreen**: Smart Touchscreen Mode (Ctrl+Opt+Cmd+S), Touch Drag
-  Scrolls and Touchscreen Adjust, for the lock screen.
+- **Touch Screen**: which screen is the touch screen, followed by its
+  options: Smart Touchscreen Mode (Ctrl+Opt+Cmd+S), Touch Drag Scrolls and
+  Touchscreen Adjust.
 - **Lock Pointer / Unlock Pointer** (Ctrl+Opt+Cmd+L): toggles the lock.
   Locking needs at least two screens.
 - **Lock Options**: which screen is the lock screen, and the options for

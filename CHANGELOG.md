@@ -6,6 +6,19 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The touch screen is chosen on its own, under Touch Screen in the menu,
+  instead of being the lock screen. By default it's the screen you turned
+  Smart Touchscreen Mode on for, so you don't need Lock Options to use a
+  touch screen.
+
+### Fixed
+
+- Touchscreen Adjust: with the touch screen as the main display (say a
+  laptop with its lid closed), macOS could send touches to another screen,
+  and they stayed there.
+
 ## [0.8.1] - 2026-10-23
 
 ### Changed

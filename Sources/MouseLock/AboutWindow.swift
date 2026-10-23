@@ -144,9 +144,15 @@ final class AboutWindow {
 
         heading("Touchscreen")
         paragraph("""
-            For a touch screen chosen as the lock screen (under Lock Options), so \
-            someone can use it by touch while your own mouse and keyboard stay on your \
-            screen.
+            For a touch screen, so someone can use it by touch while your own mouse \
+            and keyboard stay on your screen.
+            """)
+        option("Touch Screen", """
+            Which screen is the touch screen; the options below apply to it. A touch \
+            screen's touch part is a separate USB device, so MouseLock can't tell \
+            which screen it is by itself: it assumes the screen you turned Smart \
+            Touchscreen Mode on for, unless you pick one here, which is remembered \
+            whenever that screen is connected.
             """)
         option("Smart Touchscreen Mode (Ctrl+Option+Cmd+S)", """
             While unlocked: a tap on the touch screen clicks what's under the finger \
@@ -187,8 +193,7 @@ final class AboutWindow {
             """)
         option("Lock Options", "The submenu with the options below.")
         option("Lock Screen", """
-            Your second screen: the one the pointer gets locked to. If it's a touch \
-            screen, the touchscreen options apply to it as well. By default the \
+            Your second screen: the one the pointer gets locked to. By default the \
             external screen on a laptop; a screen you pick is remembered whenever it's \
             connected.
             """)
