@@ -6,6 +6,8 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-23
+
 ### Added
 
 - Wrap Pointer Around: pushing the pointer off the right side of the
@@ -252,7 +254,8 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/mwolf-net/mouselock/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/mwolf-net/mouselock/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/mwolf-net/mouselock/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/mwolf-net/mouselock/compare/v0.4.1...v0.5.0
