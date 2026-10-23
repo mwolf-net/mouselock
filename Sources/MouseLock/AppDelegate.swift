@@ -420,9 +420,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
 
         menu.addItem(.separator())
-        let toggleTitle = locker.isLocked ? "Unlock Pointer"
-            : canLock ? "Lock Pointer"
-            : "Lock Pointer (needs a second screen)"
+        let lockName = displays.first { $0.id == (locker.lockedDisplay ?? lockScreen) }?.name
+        let toggleTitle = locker.isLocked ? "Unlock Pointer" + (lockName.map { " (from \($0))" } ?? "")
+            : !canLock ? "Lock Pointer (needs a second screen)"
+            : "Lock Pointer" + (lockName.map { " to \($0)" } ?? "")
         let toggleItem = item(toggleTitle, #selector(toggleClicked))
         toggleItem.keyEquivalent = hotKeyEquivalent
         toggleItem.keyEquivalentModifierMask = hotKeyEquivalentModifiers

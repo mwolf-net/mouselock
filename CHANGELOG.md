@@ -12,6 +12,8 @@ All notable changes to MouseLock are listed here. The format follows
   instead of being the lock screen. By default it's the screen you turned
   Smart Touchscreen Mode on for, so you don't need Lock Options to use a
   touch screen.
+- Lock Pointer names the lock screen ("Lock Pointer to …"), and while locked
+  "Unlock Pointer (from …)".
 
 ### Fixed
 
