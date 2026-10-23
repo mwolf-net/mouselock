@@ -367,7 +367,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         grid.state = windowGridOn ? .on : .off
         grid.keyEquivalent = windowGridHotKeyEquivalent
         grid.keyEquivalentModifierMask = hotKeyEquivalentModifiers
-        grid.toolTip = "Divides each screen into roughly square cells, 8 along its short side. A window you resize snaps to the nearest cell edges. Turning it on also snaps all windows on screen to the cells, moving and resizing each as little as possible."
+        grid.toolTip = "Divides each screen into roughly square cells, 8 along its short side. A window you resize or move snaps to the nearest cell edges, with an outline showing where while you drag. Turning it on also snaps all windows on screen to the cells, moving and resizing each as little as possible."
         menu.addItem(grid)
         if locker.isLocked {
             let awake = NSMenuItem(title: "Keeping Display Awake (while locked)", action: nil, keyEquivalent: "")

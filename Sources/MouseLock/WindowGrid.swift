@@ -3,7 +3,8 @@ import AppKit
 /// Window Grid: each screen's usable area (without menu bar and Dock) is
 /// divided into roughly square cells, 8 along its short side. While it's on,
 /// a window that was resized has the edges that moved snapped to the nearest
-/// grid lines; turning it on snaps the edges of every window.
+/// grid lines, and one that was moved lines up with them; a preview shows
+/// where while dragging. Turning it on snaps the edges of every window.
 final class WindowGrid {
     static let cellsAlongShortSide = 8
 
@@ -14,6 +15,8 @@ final class WindowGrid {
     private var tap: CFMachPort?
     /// The window under a press, and its frame then.
     private var pressed: (number: CGWindowID, pid: pid_t, frame: CGRect)?
+    private let preview = GridPreview()
+    private var previewWork: DispatchWorkItem?
 
     struct Grid {
         /// Vertical and horizontal lines, in global coordinates (top left
@@ -70,10 +73,11 @@ final class WindowGrid {
         AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, value)
     }
 
-    // MARK: Snapping after a resize
+    // MARK: Snapping after a resize or move
 
     private func updateTap() {
         pressed = nil
+        preview.hide()
         if !enabled {
             if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
             return
@@ -85,7 +89,7 @@ final class WindowGrid {
     private func ensureTap() -> CFMachPort? {
         if let tap { return tap }
         guard AXIsProcessTrusted() else { return nil }
-        let types: [CGEventType] = [.leftMouseDown, .leftMouseUp]
+        let types: [CGEventType] = [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
         let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
         let callback: CGEventTapCallBack = { _, type, event, refcon in
             let grid = Unmanaged<WindowGrid>.fromOpaque(refcon!).takeUnretainedValue()
@@ -117,36 +121,70 @@ final class WindowGrid {
             let point = event.location
             pressed = Self.windowList().first { $0.frame.insetBy(dx: -8, dy: -8).contains(point) }
                 .map { ($0.number, $0.pid, $0.frame) }
+        case .leftMouseDragged:
+            // Show where the window would snap, about 30 times a second at most.
+            guard pressed != nil, previewWork == nil else { return }
+            let work = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                previewWork = nil
+                guard let pressed, let now = Self.frame(of: pressed.number),
+                      let snap = Self.snap(from: pressed.frame, to: now) else { return preview.hide() }
+                preview.show(snap.target)
+            }
+            previewWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.03, execute: work)
         case .leftMouseUp:
+            previewWork?.cancel()
+            previewWork = nil
+            preview.hide()
             guard let pressed else { return }
             self.pressed = nil
-            // Let the app finish the resize first.
+            // Let the app finish the resize or move first.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-                self?.snapIfResized(pressed)
+                guard let self, enabled, let now = Self.frame(of: pressed.number),
+                      let snap = Self.snap(from: pressed.frame, to: now), snap.target != now,
+                      let element = axWindow(pid: pressed.pid, frame: now) else { return }
+                Self.fit(element, into: snap.target, anchoring: snap.anchoring)
             }
         default:
             break
         }
     }
 
-    private func snapIfResized(_ pressed: (number: CGWindowID, pid: pid_t, frame: CGRect)) {
-        guard enabled, let now = Self.frame(of: pressed.number) else { return }
-        let before = pressed.frame
-        guard abs(now.width - before.width) > 1 || abs(now.height - before.height) > 1 else { return }
-        var moved: Edges = []
-        if abs(now.minX - before.minX) > 1 { moved.insert(.left) }
-        if abs(now.maxX - before.maxX) > 1 { moved.insert(.right) }
-        if abs(now.minY - before.minY) > 1 { moved.insert(.top) }
-        if abs(now.maxY - before.maxY) > 1 { moved.insert(.bottom) }
-        guard let grid = Self.grid(for: now, areas: Self.usableAreas()) else { return }
-        let target = Self.snapped(now, to: grid, edges: moved)
-        guard target != now, let element = axWindow(pid: pressed.pid, frame: now) else { return }
-        // Keep the edges that weren't dragged in place: dragging the left
-        // edge leaves any gap there, not at the right.
-        var anchoring: Edges = []
-        anchoring.insert(moved.contains(.left) && !moved.contains(.right) ? .right : .left)
-        anchoring.insert(moved.contains(.top) && !moved.contains(.bottom) ? .bottom : .top)
-        Self.fit(element, into: target, anchoring: anchoring)
+    private struct Snap {
+        let target: CGRect
+        let anchoring: Edges
+    }
+
+    /// Where a window that went from `before` to `now` snaps to, if it was
+    /// resized or moved. Resized: the edges that moved go to the nearest grid
+    /// lines. Moved: the whole window shifts to line up with the grid, by
+    /// whichever edge is closest to a line.
+    private static func snap(from before: CGRect, to now: CGRect) -> Snap? {
+        guard let grid = grid(for: now, areas: usableAreas()) else { return nil }
+        if abs(now.width - before.width) > 1 || abs(now.height - before.height) > 1 {
+            var moved: Edges = []
+            if abs(now.minX - before.minX) > 1 { moved.insert(.left) }
+            if abs(now.maxX - before.maxX) > 1 { moved.insert(.right) }
+            if abs(now.minY - before.minY) > 1 { moved.insert(.top) }
+            if abs(now.maxY - before.maxY) > 1 { moved.insert(.bottom) }
+            // Keep the edges that weren't dragged in place: dragging the left
+            // edge leaves any gap there, not at the right.
+            var anchoring: Edges = []
+            anchoring.insert(moved.contains(.left) && !moved.contains(.right) ? .right : .left)
+            anchoring.insert(moved.contains(.top) && !moved.contains(.bottom) ? .bottom : .top)
+            return Snap(target: snapped(now, to: grid, edges: moved), anchoring: anchoring)
+        }
+        if abs(now.minX - before.minX) > 1 || abs(now.minY - before.minY) > 1 {
+            func shift(_ low: CGFloat, _ high: CGFloat, _ lines: [CGFloat]) -> CGFloat {
+                let toLow = lines[nearest(low, in: lines)] - low
+                let toHigh = lines[nearest(high, in: lines)] - high
+                return abs(toLow) <= abs(toHigh) ? toLow : toHigh
+            }
+            let target = now.offsetBy(dx: shift(now.minX, now.maxX, grid.xs), dy: shift(now.minY, now.maxY, grid.ys))
+            return Snap(target: target, anchoring: [.left, .top])
+        }
+        return nil
     }
 
     // MARK: Grid geometry
@@ -251,5 +289,44 @@ final class WindowGrid {
         var fullScreen: CFTypeRef?
         AXUIElementCopyAttributeValue(window, "AXFullScreen" as CFString, &fullScreen)
         return (fullScreen as? Bool) != true
+    }
+}
+
+/// The outline of where a dragged window will snap to.
+private final class GridPreview {
+    private var panel: NSPanel?
+
+    /// `frame` in global coordinates (top left origin).
+    func show(_ frame: CGRect) {
+        guard let height = NSScreen.screens.first?.frame.height else { return }
+        let panel = self.panel ?? makePanel()
+        self.panel = panel
+        panel.setFrame(NSRect(x: frame.minX, y: height - frame.maxY, width: frame.width, height: frame.height),
+                       display: true)
+        panel.orderFrontRegardless()
+    }
+
+    func hide() {
+        panel?.orderOut(nil)
+    }
+
+    private func makePanel() -> NSPanel {
+        let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
+                            backing: .buffered, defer: true)
+        panel.level = .floating
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.ignoresMouseEvents = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        let view = NSView()
+        view.wantsLayer = true
+        view.layer?.cornerRadius = 10
+        view.layer?.borderWidth = 2
+        view.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.8).cgColor
+        view.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.15).cgColor
+        view.autoresizingMask = [.width, .height]
+        panel.contentView = view
+        return panel
     }
 }

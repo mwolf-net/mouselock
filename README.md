@@ -68,7 +68,8 @@ hotkey instead of restarting the browser.
   at the same fraction of their height, as if their corners touched. Handy
   for a Retina screen next to a lower resolution one of about the same size.
 - **Window Grid** (Ctrl+Opt+Cmd+W): divides each screen into roughly square
-  cells, 8 along its short side, and snaps a window you resize to them.
+  cells, 8 along its short side, and snaps a window you resize or move to
+  them, with an outline showing where while you drag.
   Turning it on snaps all windows on screen to the cells, moving and
   resizing each as little as possible.
 - Start at login. No Dock icon, no windows, no network access.

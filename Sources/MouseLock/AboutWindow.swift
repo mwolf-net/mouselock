@@ -164,8 +164,9 @@ final class AboutWindow {
         option("Window Grid (Ctrl+Option+Cmd+W)", """
             Divides each screen (minus menu bar and Dock) into roughly square cells, \
             8 along its short side. When you resize a window, the edges you moved \
-            snap to the nearest cell edges. Turning it on also snaps every window on \
-            screen to the cells, each edge to the nearest one, so windows move and \
+            snap to the nearest cell edges; a window you move lines up with them. An \
+            outline shows where while you drag. Turning it on also snaps every window \
+            on screen to the cells, each edge to the nearest one, so windows move and \
             change size as little as possible.
             """)
         option("Keep Display Awake", """
