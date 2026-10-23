@@ -282,58 +282,83 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         let displays = Display.all()
 
-        let header = NSMenuItem(title: "Lock Screen", action: nil, keyEquivalent: "")
-        header.isEnabled = false
-        header.toolTip = "The screen the pointer gets locked to. Usually the second screen for customers or guests; if it's a touch screen, the touch options below apply to it."
-        menu.addItem(header)
-        for display in displays {
-            let title = display.name + (display.isBuiltin ? " (built-in)" : "")
-            let entry = item(title, #selector(lockScreenClicked(_:)))
-            entry.representedObject = NSNumber(value: display.id)
-            entry.state = display.id == lockScreen ? .on : .off
-            entry.indentationLevel = 1
-            entry.isEnabled = canLock
-            entry.toolTip = "Use this screen as the lock screen. Your choice is remembered whenever this screen is connected."
-            menu.addItem(entry)
+        // Window manager.
+        let grid = item("Window Grid", #selector(windowGridClicked))
+        grid.state = windowGridOn ? .on : .off
+        grid.keyEquivalent = windowGridHotKeyEquivalent
+        grid.keyEquivalentModifierMask = hotKeyEquivalentModifiers
+        grid.toolTip = "Divides each screen into roughly square cells, as many as chosen under Window Grid Size. A window you resize or move snaps to the nearest cell edges, with an outline showing where while you drag. Turning it on also snaps all windows on screen to the cells, moving and resizing each as little as possible. Windows against a dragged edge follow it; windows you drag onto make room. Hold Control while dragging to skip all this, or press Esc to put the window back. New windows open small, in free space or on top."
+        menu.addItem(grid)
+        // Sizes as each screen's columns × rows, main screen first.
+        let sizes = NSMenuItem(title: "Window Grid Size", action: nil, keyEquivalent: "")
+        let sizeMenu = NSMenu()
+        let areas = WindowGrid.usableAreas()
+        for cells in WindowGrid.sizeChoices {
+            let title = areas.map { area in
+                let (columns, rows) = WindowGrid.dimensions(of: area, cells: cells)
+                return "\(columns)×\(rows)"
+            }.joined(separator: "  ·  ")
+            let entry = item(title, #selector(gridSizeClicked(_:)))
+            entry.representedObject = cells
+            entry.state = cells == WindowGrid.cellsAlongShortSide ? .on : .off
+            sizeMenu.addItem(entry)
+        }
+        sizes.submenu = sizeMenu
+        menu.addItem(sizes)
+
+        menu.addItem(.separator())
+        // The pointer between screens.
+        if displays.count > 1 {
+            let edges = item("Match Screen Edges", #selector(matchScreenEdgesClicked))
+            edges.state = matchScreenEdges ? .on : .off
+            edges.toolTip = "When the pointer crosses between screens side by side, it lands at the same fraction of the height on the other screen, as if their corners touched. Helps when a Retina screen sits next to a lower resolution one of about the same size."
+            menu.addItem(edges)
+        }
+        let wrap = item("Wrap Pointer Around", #selector(wrapPointerClicked))
+        wrap.state = wrapPointer ? .on : .off
+        wrap.toolTip = "Pushing the pointer off the right side of the rightmost screen brings it in on the left of the leftmost one, and the other way round, as if the screens were on a cylinder. Also while dragging a window or a file, but not while resizing a window by its edge, nor while locked."
+        menu.addItem(wrap)
+
+        menu.addItem(.separator())
+        // Shortcuts for what System Settings can do too.
+        if let (_, others) = ScreenArrangement.primaryAndOthers(of: displays) {
+            for screen in others {
+                let position = NSMenuItem(title: "Position \(screen.name)", action: nil, keyEquivalent: "")
+                let submenu = NSMenu()
+                for option in ScreenArrangement.options(for: screen.id, among: displays) {
+                    let entry = item(option.title, #selector(positionClicked(_:)))
+                    entry.representedObject = PositionChoice(screen: screen.id, placement: option.placement)
+                    entry.state = option.isCurrent ? .on : .off
+                    submenu.addItem(entry)
+                }
+                position.submenu = submenu
+                menu.addItem(position)
+            }
+        }
+        if locker.isLocked {
+            let awake = NSMenuItem(title: "Keeping Display Awake (while locked)", action: nil, keyEquivalent: "")
+            awake.state = .on
+            awake.isEnabled = false
+            awake.toolTip = "While locked, the display never sleeps and the screen saver and idle password lock don't start."
+            menu.addItem(awake)
+        } else {
+            // Say what happens when idle, or that the display stays on
+            // anyway (settings, or another app keeping it awake).
+            // Unchecked, what happens is what you'd keep awake from: "else".
+            let firstEvent = StayAwake.firstIdleEvent()
+            let note = keepAwakeManually ? firstEvent : firstEvent.map { "else: \($0)" } ?? "display stays on"
+            let awake = item("Keep Display Awake" + (note.map { " (\($0))" } ?? ""),
+                             #selector(keepAwakeClicked))
+            awake.state = keepAwakeManually ? .on : .off
+            awake.toolTip = "Keep the display awake (no screen saver, display sleep or idle password lock) without locking the pointer. Always on while locked. Resets when MouseLock restarts. Also shows what happens first when the Mac is left alone, or that the display stays on anyway (because of your settings, or another app such as a video playing). Doesn't stop a laptop sleeping when its lid is closed on battery power."
+            menu.addItem(awake)
         }
 
-        let toggleTitle = locker.isLocked ? "Unlock Pointer"
-            : canLock ? "Lock Pointer"
-            : "Lock Pointer (needs a second screen)"
-        let toggleItem = item(toggleTitle, #selector(toggleClicked))
-        toggleItem.keyEquivalent = hotKeyEquivalent
-        toggleItem.keyEquivalentModifierMask = hotKeyEquivalentModifiers
-        toggleItem.isEnabled = locker.isLocked || canLock
-        toggleItem.toolTip = locker.isLocked
-            ? "Release the pointer and put it back where it was before locking."
-            : "Move the pointer to the lock screen and keep it there: moving the mouse can't take it off. Only the keyboard shortcut unlocks."
-        menu.addItem(toggleItem)
-        // Remembered per screen (see isEnabled(_:on:)), without saying so.
-        let hide = item("Hide Pointer When Locked", #selector(hidePointerClicked))
-        hide.state = isEnabled(Self.hidePointerKey, on: lockScreen) ? .on : .off
-        hide.isEnabled = lockScreen != nil
-        hide.toolTip = "Hide the pointer while it's locked, showing a brief crosshair where taps or clicks land. Meant for touch screens; remembered for this lock screen only."
-        menu.addItem(hide)
-
-        let dock = item("Keep Dock Off Lock Screen", #selector(keepDockOffClicked))
-        dock.state = keepDockOff ? .on : .off
-        dock.toolTip = "While locked, keep the pointer off the lock screen's bottom edge, so the Dock can't be pulled onto it."
-        menu.addItem(dock)
-
-        let menuBar = item("Keep Menu Bar Hidden on Lock Screen", #selector(keepMenuBarHiddenClicked))
-        menuBar.state = keepMenuBarHidden ? .on : .off
-        menuBar.toolTip = "While locked, keep the pointer off the lock screen's top edge, so a hidden menu bar (in full-screen apps) doesn't slide down."
-        menu.addItem(menuBar)
-
-        let context = item("Block Right-Click and Extra Buttons While Locked", #selector(blockExtraButtonsClicked))
-        context.state = blockExtraButtons ? .on : .off
-        context.toolTip = "While locked, ignore right-clicks and the middle and back/forward buttons, so the mouse can't open context menus or navigate the browser. Ctrl+click still works. Also ignores a touch screen's two-finger tap (a right-click) in Smart Touchscreen Mode."
-        menu.addItem(context)
 
         menu.addItem(.separator())
         let touchHeader = NSMenuItem(title: "Touchscreen", action: nil, keyEquivalent: "")
         touchHeader.isEnabled = false
-        touchHeader.toolTip = "For a touch screen as the screen selected under Lock Screen."
+        touchHeader.toolTip = "For a touch screen chosen as the lock screen (under Lock Options)."
         menu.addItem(touchHeader)
         let touch = item("Smart Touchscreen Mode", #selector(smartTouchClicked))
         touch.state = isEnabled(Self.smartTouchKey, on: lockScreen) ? .on : .off
@@ -358,69 +383,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         adjust.indentationLevel = 1
         menu.addItem(adjust)
 
+
         menu.addItem(.separator())
-        if let (_, others) = ScreenArrangement.primaryAndOthers(of: displays) {
-            for screen in others {
-                let position = NSMenuItem(title: "Position \(screen.name)", action: nil, keyEquivalent: "")
-                let submenu = NSMenu()
-                for option in ScreenArrangement.options(for: screen.id, among: displays) {
-                    let entry = item(option.title, #selector(positionClicked(_:)))
-                    entry.representedObject = PositionChoice(screen: screen.id, placement: option.placement)
-                    entry.state = option.isCurrent ? .on : .off
-                    submenu.addItem(entry)
-                }
-                position.submenu = submenu
-                menu.addItem(position)
-            }
-            let edges = item("Match Screen Edges", #selector(matchScreenEdgesClicked))
-            edges.state = matchScreenEdges ? .on : .off
-            edges.toolTip = "When the pointer crosses between screens side by side, it lands at the same fraction of the height on the other screen, as if their corners touched. Helps when a Retina screen sits next to a lower resolution one of about the same size."
-            menu.addItem(edges)
-            menu.addItem(.separator())
+        let toggleTitle = locker.isLocked ? "Unlock Pointer"
+            : canLock ? "Lock Pointer"
+            : "Lock Pointer (needs a second screen)"
+        let toggleItem = item(toggleTitle, #selector(toggleClicked))
+        toggleItem.keyEquivalent = hotKeyEquivalent
+        toggleItem.keyEquivalentModifierMask = hotKeyEquivalentModifiers
+        toggleItem.isEnabled = locker.isLocked || canLock
+        toggleItem.toolTip = locker.isLocked
+            ? "Release the pointer and put it back where it was before locking."
+            : "Move the pointer to the lock screen and keep it there: moving the mouse can't take it off. Only the keyboard shortcut unlocks."
+        menu.addItem(toggleItem)
+        let lockOptions = NSMenuItem(title: "Lock Options", action: nil, keyEquivalent: "")
+        let lockMenu = NSMenu()
+        lockMenu.autoenablesItems = false
+        let header = NSMenuItem(title: "Lock Screen", action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        header.toolTip = "The screen the pointer gets locked to. Usually the second screen for customers or guests; if it's a touch screen, the touch options below apply to it."
+        lockMenu.addItem(header)
+        for display in displays {
+            let title = display.name + (display.isBuiltin ? " (built-in)" : "")
+            let entry = item(title, #selector(lockScreenClicked(_:)))
+            entry.representedObject = NSNumber(value: display.id)
+            entry.state = display.id == lockScreen ? .on : .off
+            entry.indentationLevel = 1
+            entry.isEnabled = canLock
+            entry.toolTip = "Use this screen as the lock screen. Your choice is remembered whenever this screen is connected."
+            lockMenu.addItem(entry)
         }
-        let wrap = item("Wrap Pointer Around", #selector(wrapPointerClicked))
-        wrap.state = wrapPointer ? .on : .off
-        wrap.toolTip = "Pushing the pointer off the right side of the rightmost screen brings it in on the left of the leftmost one, and the other way round, as if the screens were on a cylinder. Also while dragging a window or a file, but not while resizing a window by its edge, nor while locked."
-        menu.addItem(wrap)
-        let grid = item("Window Grid", #selector(windowGridClicked))
-        grid.state = windowGridOn ? .on : .off
-        grid.keyEquivalent = windowGridHotKeyEquivalent
-        grid.keyEquivalentModifierMask = hotKeyEquivalentModifiers
-        grid.toolTip = "Divides each screen into roughly square cells, as many as chosen under Window Grid Size. A window you resize or move snaps to the nearest cell edges, with an outline showing where while you drag. Turning it on also snaps all windows on screen to the cells, moving and resizing each as little as possible. New windows go into free space, or get half of the largest window's."
-        menu.addItem(grid)
-        // Sizes as each screen's columns × rows, main screen first.
-        let sizes = NSMenuItem(title: "Window Grid Size", action: nil, keyEquivalent: "")
-        let sizeMenu = NSMenu()
-        let areas = WindowGrid.usableAreas()
-        for cells in WindowGrid.sizeChoices {
-            let title = areas.map { area in
-                let (columns, rows) = WindowGrid.dimensions(of: area, cells: cells)
-                return "\(columns)×\(rows)"
-            }.joined(separator: "  ·  ")
-            let entry = item(title, #selector(gridSizeClicked(_:)))
-            entry.representedObject = cells
-            entry.state = cells == WindowGrid.cellsAlongShortSide ? .on : .off
-            sizeMenu.addItem(entry)
-        }
-        sizes.submenu = sizeMenu
-        menu.addItem(sizes)
-        if locker.isLocked {
-            let awake = NSMenuItem(title: "Keeping Display Awake (while locked)", action: nil, keyEquivalent: "")
-            awake.state = .on
-            awake.isEnabled = false
-            awake.toolTip = "While locked, the display never sleeps and the screen saver and idle password lock don't start."
-            menu.addItem(awake)
-        } else {
-            // Say what happens when idle, or that the display stays on
-            // anyway (settings, or another app keeping it awake).
-            let firstEvent = StayAwake.firstIdleEvent()
-            let note = firstEvent ?? (keepAwakeManually ? nil : "display stays on")
-            let awake = item("Keep Display Awake" + (note.map { " (\($0))" } ?? ""),
-                             #selector(keepAwakeClicked))
-            awake.state = keepAwakeManually ? .on : .off
-            awake.toolTip = "Keep the display awake (no screen saver, display sleep or idle password lock) without locking the pointer. Always on while locked. Resets when MouseLock restarts. Also shows what happens first when the Mac is left alone, or that the display stays on anyway (because of your settings, or another app such as a video playing). Doesn't stop a laptop sleeping when its lid is closed on battery power."
-            menu.addItem(awake)
-        }
+
+        lockMenu.addItem(.separator())
+        // Remembered per screen (see isEnabled(_:on:)), without saying so.
+        let hide = item("Hide Pointer When Locked", #selector(hidePointerClicked))
+        hide.state = isEnabled(Self.hidePointerKey, on: lockScreen) ? .on : .off
+        hide.isEnabled = lockScreen != nil
+        hide.toolTip = "Hide the pointer while it's locked, showing a brief crosshair where taps or clicks land. Meant for touch screens; remembered for this lock screen only."
+        lockMenu.addItem(hide)
+
+        let dock = item("Keep Dock Off Lock Screen", #selector(keepDockOffClicked))
+        dock.state = keepDockOff ? .on : .off
+        dock.toolTip = "While locked, keep the pointer off the lock screen's bottom edge, so the Dock can't be pulled onto it."
+        lockMenu.addItem(dock)
+
+        let menuBar = item("Keep Menu Bar Hidden on Lock Screen", #selector(keepMenuBarHiddenClicked))
+        menuBar.state = keepMenuBarHidden ? .on : .off
+        menuBar.toolTip = "While locked, keep the pointer off the lock screen's top edge, so a hidden menu bar (in full-screen apps) doesn't slide down."
+        lockMenu.addItem(menuBar)
+
+        let context = item("Block Right-Click and Extra Buttons While Locked", #selector(blockExtraButtonsClicked))
+        context.state = blockExtraButtons ? .on : .off
+        context.toolTip = "While locked, ignore right-clicks and the middle and back/forward buttons, so the mouse can't open context menus or navigate the browser. Ctrl+click still works. Also ignores a touch screen's two-finger tap (a right-click) in Smart Touchscreen Mode."
+        lockMenu.addItem(context)
+
+        lockOptions.submenu = lockMenu
+        menu.addItem(lockOptions)
 
         menu.addItem(.separator())
         let login = item("Start at Login", #selector(startAtLoginClicked))

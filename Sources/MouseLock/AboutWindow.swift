@@ -69,57 +69,83 @@ final class AboutWindow {
         add("Version \(version)", .systemFont(ofSize: 12), color: .secondaryLabelColor, spacingAfter: 16)
 
         paragraph("""
-            MouseLock helps when a second screen is meant for someone else, such as \
-            customers or guests using a web app, while you keep working on your own \
-            screen. It works in one of two ways:
-            """)
-        paragraph("""
-            Lock: the mouse pointer is locked onto the second screen (the lock screen), \
-            so the mouse can't leave it. With an ordinary second screen, you can hand \
-            someone the mouse and let them use that screen safely; when you take the \
-            mouse back, unlock with the keyboard shortcut Ctrl+Option+Cmd+L. Only the \
-            keyboard unlocks: whoever has the keyboard is in charge.
-            """)
-        paragraph("""
-            Smart touch: if the second screen is a touch screen, people can use it by \
-            touch while your own mouse and keyboard stay on your screen, without \
-            locking anything.
+            MouseLock helps you work with more than one screen. It snaps windows to a \
+            grid, eases the pointer's way between screens, arranges your screens and \
+            keeps the display awake right from the menu, lets someone use a touch \
+            screen while you keep working on your own, and can lock the pointer onto \
+            a second screen meant for someone else.
             """)
 
-        heading("Lock")
-        option("Lock Screen", """
-            Your second screen: the one the pointer gets locked to. If it's a touch \
-            screen, the touch screen options below apply to it as well. By default the \
-            external screen on a laptop; a screen you pick is remembered whenever it's \
-            connected.
+        heading("Windows")
+        option("Window Grid (Ctrl+Option+Cmd+W)", """
+            Divides each screen (minus menu bar and Dock) into roughly square cells. \
+            When you resize a window, the edges you moved snap to the nearest cell \
+            edges; a window you move lines up with them. Windows against an edge you \
+            drag follow it, growing or shrinking, and windows you drag onto are \
+            trimmed on the side that costs them least, or move into free space; \
+            nothing further along changes. Outlines show all this while you drag. To \
+            drag without any of it, hold Control once you've started dragging (held \
+            before, it makes a right-click). Press Esc while dragging to call it off: \
+            the window goes back where it was when you let go.
             """)
-        option("Lock Pointer / Unlock Pointer (Ctrl+Option+Cmd+L)", """
-            Moves the pointer onto the lock screen and keeps it there. Unlocking puts \
-            it back where it was. Locking needs at least two screens. While locked, \
-            this menu is disabled, so the mouse alone can't release the lock, and the \
-            display is kept awake.
+        paragraph("""
+            A new window opens at its smallest size, at least one cell, on the screen \
+            with the pointer: in free space near the middle, or else on top, covering \
+            as little as possible of any one window. Turning the grid on, or starting \
+            MouseLock with it on, arranges all windows on the cells without \
+            overlapping, each moving and resizing as little as possible, unless the \
+            free space would leave one less than half its size.
             """)
-        option("Hide Pointer When Locked", """
-            Hides the pointer while locked, showing a brief crosshair where clicks \
-            land. Meant for touch screens, so it's remembered per screen and starts \
-            off for any new screen.
+        option("Window Grid Size", """
+            How many cells: 4 along each screen's short side by default. Each choice \
+            shows the resulting columns × rows per screen, main screen first.
             """)
-        option("Keep Dock Off Lock Screen", """
-            While locked, keeps the pointer off the lock screen's bottom edge, so \
-            pushing the mouse down can't pull the Dock onto it.
+
+        heading("Between Screens")
+        option("Match Screen Edges", """
+            When the pointer crosses between two screens side by side, it lands at \
+            the same fraction of the height on the other screen, as if the screens' \
+            corners touched. Without it macOS keeps the pointer at the same height in \
+            points, which feels off with a Retina screen next to a lower resolution \
+            one of about the same size. Not for screens above one another, nor when \
+            more than one screen sits on that side.
             """)
-        option("Keep Menu Bar Hidden on Lock Screen", """
-            While locked, keeps the pointer off the top few rows, so a hidden menu bar \
-            (in full-screen apps) doesn't slide down.
+        option("Wrap Pointer Around", """
+            Pushing the pointer off the right side of the rightmost screen brings it \
+            in on the left of the leftmost one, and the other way round, as if the \
+            screens stood in a cylinder. It keeps its height (with Match Screen \
+            Edges, the same fraction of the height). Also while dragging a window or \
+            a file along, but not while resizing a window by its edge, nor while \
+            locked.
             """)
-        option("Block Right-Click and Extra Buttons While Locked", """
-            While locked, ignores right-clicks and the middle and back/forward \
-            buttons, so the mouse can't open context menus or navigate the browser \
-            back. Also ignores a touch screen's two-finger tap (a right-click), in \
-            Smart Touchscreen Mode too. Ctrl+click still works.
+
+        heading("Screen Settings")
+        paragraph("Shortcuts for what System Settings can do too.")
+        option("Position", """
+            With more than one screen: puts a screen left of, right of or above \
+            another, as in System Settings > Displays > Arrange. Options are listed \
+            relative to the laptop's own screen first, or with the lid closed, to \
+            the main display (the one with the menu bar). Screens side by side line \
+            up their bottoms; a screen above another is centred on it. Handy when you \
+            move between desks.
+            """)
+        option("Keep Display Awake", """
+            Prevents display sleep, the screen saver and the idle password lock. \
+            Always on while the pointer is locked. Resets when MouseLock restarts. It \
+            only prevents sleep from inactivity: a laptop still goes to sleep when \
+            you close the lid on battery power (keeping it running with the lid \
+            closed needs the power adapter), or when the battery runs low. The menu \
+            also shows what happens first when the Mac is left alone, or that the \
+            display stays on anyway (because of your settings, or another app such \
+            as a video playing).
             """)
 
         heading("Touchscreen")
+        paragraph("""
+            For a touch screen chosen as the lock screen (under Lock Options), so \
+            someone can use it by touch while your own mouse and keyboard stay on your \
+            screen.
+            """)
         option("Smart Touchscreen Mode (Ctrl+Option+Cmd+S)", """
             While unlocked: a tap on the touch screen clicks what's under the finger \
             in one go, even in a window that isn't active, and then keyboard focus \
@@ -144,60 +170,47 @@ final class AboutWindow {
             screen is connected.
             """)
 
-        heading("Other")
-        option("Position", """
-            With more than one screen: puts a screen left of, right of or above \
-            another, as in System Settings > Displays > Arrange. Options are listed \
-            relative to the laptop's own screen first, or with the lid closed, to \
-            the main display (the one with the menu bar). Screens side by side line \
-            up their bottoms; a screen above another is centred on it. Handy when you \
-            move between desks.
+        heading("Lock")
+        paragraph("""
+            With an ordinary second screen meant for someone else, you can lock the \
+            pointer onto it and hand them the mouse: they can use that screen, but \
+            the mouse can't leave it. Only the keyboard unlocks: whoever has the \
+            keyboard is in charge.
             """)
-        option("Match Screen Edges", """
-            When the pointer crosses between two screens side by side, it lands at \
-            the same fraction of the height on the other screen, as if the screens' \
-            corners touched. Without it macOS keeps the pointer at the same height in \
-            points, which feels off with a Retina screen next to a lower resolution \
-            one of about the same size. Not for screens above one another, nor when \
-            more than one screen sits on that side.
+        option("Lock Pointer / Unlock Pointer (Ctrl+Option+Cmd+L)", """
+            Moves the pointer onto the lock screen and keeps it there. Unlocking puts \
+            it back where it was. Locking needs at least two screens. While locked, \
+            this menu is disabled, so the mouse alone can't release the lock, and the \
+            display is kept awake.
             """)
-        option("Wrap Pointer Around", """
-            Pushing the pointer off the right side of the rightmost screen brings it \
-            in on the left of the leftmost one, and the other way round, as if the \
-            screens stood in a cylinder. It keeps its height (with Match Screen \
-            Edges, the same fraction of the height). Also while dragging a window or \
-            a file along, but not while resizing a window by its edge, nor while \
-            locked.
+        option("Lock Options", "The submenu with the options below.")
+        option("Lock Screen", """
+            Your second screen: the one the pointer gets locked to. If it's a touch \
+            screen, the touchscreen options apply to it as well. By default the \
+            external screen on a laptop; a screen you pick is remembered whenever it's \
+            connected.
             """)
-        option("Window Grid (Ctrl+Option+Cmd+W)", """
-            Divides each screen (minus menu bar and Dock) into roughly square cells: \
-            4 along its short side, or as chosen under Window Grid Size (shown per \
-            screen as columns × rows, main screen first). When you resize a window, \
-            the edges you moved snap to the nearest cell edges; a window you move \
-            lines up with them. Windows against an edge you drag follow it, growing \
-            or shrinking, and windows you drag onto are trimmed on the side that \
-            costs them least, or move into free space; nothing further along \
-            changes. Outlines show all this while you drag. To drag without any of \
-            it, hold Control once you've started dragging (held before, it makes a \
-            right-click). Press Esc while dragging to call it off: the window goes \
-            back where it was when you let go. A new window opens at its smallest size, at least one cell, \
-            on the screen with the pointer: in free space near the middle, or else \
-            on top, covering as little as possible of any one window. Turning the \
-            grid on, or starting MouseLock with it on, arranges all windows on the \
-            cells without overlapping, each moving and resizing as little as \
-            possible, unless the free space would leave one less than half its size.
+        option("Hide Pointer When Locked", """
+            Hides the pointer while locked, showing a brief crosshair where clicks \
+            land. Meant for touch screens, so it's remembered per screen and starts \
+            off for any new screen.
+            """)
+        option("Keep Dock Off Lock Screen", """
+            While locked, keeps the pointer off the lock screen's bottom edge, so \
+            pushing the mouse down can't pull the Dock onto it.
+            """)
+        option("Keep Menu Bar Hidden on Lock Screen", """
+            While locked, keeps the pointer off the top few rows, so a hidden menu bar \
+            (in full-screen apps) doesn't slide down.
+            """)
+        option("Block Right-Click and Extra Buttons While Locked", """
+            While locked, ignores right-clicks and the middle and back/forward \
+            buttons, so the mouse can't open context menus or navigate the browser \
+            back. Also ignores a touch screen's two-finger tap (a right-click), in \
+            Smart Touchscreen Mode too. Ctrl+click still works.
             """)
 
-        option("Keep Display Awake", """
-            Prevents display sleep, the screen saver and the idle password lock, \
-            without locking the pointer. Always on while locked. Resets when \
-            MouseLock restarts. It only prevents sleep from inactivity: a laptop \
-            still goes to sleep when you close the lid on battery power (keeping it \
-            running with the lid closed needs the power adapter), or when the battery \
-            runs low. The menu also shows what happens first when the Mac is left \
-            alone, or that the display stays on anyway (because of your settings, or \
-            another app such as a video playing).
-            """)
+        heading("Other")
         option("Start at Login", "Starts MouseLock automatically when you log in.")
 
         heading("Tips")

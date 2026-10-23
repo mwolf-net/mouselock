@@ -13,6 +13,14 @@ All notable changes to MouseLock are listed here. The format follows
   other way round. Also while dragging a window or a file, but not while
   resizing a window by its edge.
 
+### Changed
+
+- The menu is reordered: Window Grid first, then the pointer between
+  screens, screen positioning and Keep Display Awake, the touchscreen
+  options, and Lock Pointer last, with the lock screen and the options for
+  while locked in a Lock Options submenu. The About window and README
+  follow the same order.
+
 ### Fixed
 
 - A mouse button could stay down for good if a press MouseLock passed on

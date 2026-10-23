@@ -1,17 +1,24 @@
 # MouseLock
 
-A small macOS menu bar app that locks the mouse pointer to one display.
+A small macOS menu bar app for working with more than one screen.
 
-Press a hotkey and the pointer moves to your second screen and stays there:
-moving the mouse can't bring it back to the first one. Press the hotkey again
-to unlock. That makes the second screen work like a kiosk (say, a web app in a
-full-screen browser for customers or guests) while you keep the laptop screen
-and the keyboard for yourself.
+- **Windows:** a window grid that snaps windows into place as you move or
+  resize them, nudging their neighbours along.
+- **Between screens:** the pointer can cross between screens as if their
+  corners touched, and wrap around from the rightmost screen to the
+  leftmost.
+- **Screen settings:** arrange your screens and keep the display awake from
+  the menu, instead of in System Settings.
+- **Touch screen:** someone can use a touch screen by touch while your own
+  mouse and keyboard stay on your screen.
+- **Lock:** lock the pointer onto a second screen meant for someone else.
 
-If the second screen is a touch screen, there's an even simpler setup: in
-Smart Touchscreen Mode your mouse stays on your screen, while someone else
-uses the touch screen by tapping and scrolling, without disturbing your
-pointer or keyboard focus.
+That last one is where MouseLock started. Press a hotkey and the pointer
+moves to your second screen and stays there: moving the mouse can't bring it
+back to the first one. Press the hotkey again to unlock. That makes the
+second screen work like a kiosk (say, a web app in a full-screen browser for
+customers or guests) while you keep the laptop screen and the keyboard for
+yourself.
 
 Why not Chrome's `--kiosk` mode? It's great for a dedicated machine, but it
 needs a browser instance of its own, so it can't share a profile (logins,
@@ -22,13 +29,69 @@ hotkey instead of restarting the browser.
 
 ## Features
 
+### Windows
+
+- **Window Grid** (Ctrl+Opt+Cmd+W): divides each screen into roughly square
+  cells (4 along its short side, or as chosen under Window Grid Size), and
+  snaps a window you resize or move to them. Windows against an edge you
+  drag follow it, and windows you drag onto make room, without affecting
+  windows further along; outlines show it all while you drag. Hold Control
+  once dragging to skip all of that, or press Esc to put the window back
+  when you let go. New windows open small, in free space near the middle or
+  else on top. Turning the grid on arranges all windows on the cells without
+  overlapping.
+
+### Between screens
+
+- **Match Screen Edges**: the pointer crosses between screens side by side
+  at the same fraction of their height, as if their corners touched. Handy
+  for a Retina screen next to a lower resolution one of about the same size.
+- **Wrap Pointer Around**: pushing the pointer off the right side of the
+  rightmost screen brings it in on the left of the leftmost one, and the
+  other way round, also while dragging a window or a file.
+
+### Screen settings
+
+- **Position screens** left of, right of or above another screen from the
+  menu, instead of dragging them around in System Settings -> Displays ->
+  Arrange. Relative to the laptop's own screen first, or with the lid
+  closed (or on a desktop Mac), to the main display.
+- **Keep Display Awake**: no screen saver, no display sleep, and so no idle
+  password lock. The menu shows what happens first when idle otherwise.
+
+### Touch screen
+
+For a touch screen chosen as the lock screen:
+
+- **Smart Touchscreen Mode** (Ctrl+Opt+Cmd+S): while unlocked, a tap on
+  the touch screen clicks what's under the finger (in one tap, even in an
+  inactive window), then the pointer and keyboard focus go straight back
+  to where they were. The mouse can't enter the touch screen, and the
+  pointer stays hidden there. Someone can use the touch screen while you
+  keep working on yours. A tap in a password field keeps the keyboard, so a
+  PIN can be typed; click your own window to get it back.
+- **Touch Drag Scrolls**: dragging a finger scrolls instead of selecting
+  text. A tap still clicks; holding the finger still for a moment before
+  dragging selects or drags as usual. On by default when a USB touch
+  screen is connected.
+- **Touchscreen Adjust**: macOS sometimes sends a touch screen's taps to
+  the main display instead, and doesn't rotate them when the screen is
+  rotated (System Settings -> Displays -> Rotation, say for a portrait
+  wall mount). MouseLock puts them where the finger is. Many touch screens
+  also turn two-finger gestures into mouse and keyboard input: MouseLock
+  makes two-finger scrolling scroll under the fingers (the page following
+  them), and ignores pinch, which arrives as screen-zoom key presses. On by
+  default when a USB touch screen is connected.
+
+### Lock
+
 - **Lock the pointer** to one screen with Ctrl+Opt+Cmd+L or from the menu.
   Unlocking puts the pointer back where it was.
 - **Only the keyboard unlocks.** While locked, MouseLock's menu is greyed
   out (Quit included), so the mouse alone can't release the lock.
-- **Keeps the display awake** while locked: no screen saver, no display sleep,
-  and so no idle password lock. Can also be turned on without locking.
-- **Kiosk-friendly options** (all on by default, except hiding the pointer):
+- **Keeps the display awake** while locked.
+- **Kiosk-friendly options**, under Lock Options (all on by default, except
+  hiding the pointer):
   - Keep the Dock from moving onto the lock screen.
   - Keep a hidden menu bar (full-screen apps, or auto-hide) from sliding down.
   - Block right-clicks and extra mouse buttons (middle, back/forward),
@@ -36,49 +99,12 @@ hotkey instead of restarting the browser.
     Mode).
   - Hide the pointer, showing a brief crosshair where clicks land. Meant for
     touch screens, so it's set per screen and starts off for a new one.
-- **Touch screen support** for a touch screen as the lock screen:
-  - **Smart Touchscreen Mode** (Ctrl+Opt+Cmd+S): while unlocked, a tap on
-    the touch screen clicks what's under the finger (in one tap, even in an
-    inactive window), then the pointer and keyboard focus go straight back
-    to where they were. The mouse can't enter the touch screen, and the
-    pointer stays hidden there. Someone can use the touch screen while you
-    keep working on yours.
-    A tap in a password field keeps the keyboard, so a PIN can be typed;
-    click your own window to get it back.
-  - **Touch Drag Scrolls**: dragging a finger scrolls instead of selecting
-    text. A tap still clicks; holding the finger still for a moment before
-    dragging selects or drags as usual. On by default when a USB touch
-    screen is connected.
-  - **Touchscreen Adjust**: macOS sometimes sends a touch screen's taps to
-    the main display instead, and doesn't rotate them when the screen is
-    rotated (System Settings -> Displays -> Rotation, say for a portrait
-    wall mount). MouseLock puts them where the finger is. Many touch screens
-    also turn two-finger gestures into mouse and keyboard input: MouseLock
-    makes two-finger scrolling scroll under the fingers (the page following
-    them), and ignores pinch, which arrives as screen-zoom key presses. On by
-    default when a USB touch screen is connected.
 - **Sensible default lock screen:** the external display on a laptop, or the
   screen the pointer isn't on when MouseLock starts. A screen picked in the
   menu is remembered.
-- **Position screens** left of, right of or above another screen from the
-  menu, instead of dragging them around in System Settings -> Displays ->
-  Arrange. Relative to the laptop's own screen first, or with the lid
-  closed (or on a desktop Mac), to the main display.
-- **Match Screen Edges**: the pointer crosses between screens side by side
-  at the same fraction of their height, as if their corners touched. Handy
-  for a Retina screen next to a lower resolution one of about the same size.
-- **Wrap Pointer Around**: pushing the pointer off the right side of the
-  rightmost screen brings it in on the left of the leftmost one, and the
-  other way round.
-- **Window Grid** (Ctrl+Opt+Cmd+W): divides each screen into roughly square
-  cells (4 along its short side, or as chosen under Window Grid Size), and
-  snaps a window you resize or move to them. Windows against an edge you
-  drag follow it, and windows you drag onto make room, without affecting
-  windows further along; outlines show it all while you drag. Hold Control
-  once dragging to skip all of that, or press Esc to put the window back
-  when you let go. New windows open small, in free space
-  near the middle or else on top. Turning the grid on arranges all windows
-  on the cells without overlapping.
+
+### Other
+
 - Start at login. No Dock icon, no windows, no network access.
 
 ## Requirements
@@ -137,24 +163,30 @@ stale entry itself and asks again, so you only need to allow it. (Manually:
 
 ## Usage
 
-Click the pointer icon in the menu bar:
+Click the pointer icon in the menu bar. From top to bottom:
 
-- **Lock Screen**: the display the pointer gets locked to.
-- **Lock Pointer / Unlock Pointer** (Ctrl+Opt+Cmd+L): toggles the lock.
-  Locking needs at least two screens.
-- **Smart Touchscreen Mode** (Ctrl+Opt+Cmd+S): toggles it for the lock
-  screen.
 - **Window Grid** (Ctrl+Opt+Cmd+W): toggles window snapping; turning it on
   arranges your windows on the grid. **Window Grid Size** picks how many
   cells, shown per screen as columns × rows.
+- **Match Screen Edges** and **Wrap Pointer Around**: how the pointer moves
+  between screens.
+- **Position** (one item per screen): where that screen sits among the
+  others.
 - **Keep Display Awake**: keeps the display awake without locking (it always
-  is while locked). The menu also shows what happens first when idle, such
-  as "display off after 10 min", or that the display stays on anyway.
+  is while locked). The menu also shows what happens first when idle
+  otherwise, such as "else: display off after 10 min", or that the display
+  stays on anyway.
   Resets when MouseLock restarts. It only prevents sleep from inactivity: a
   laptop still sleeps when its lid is closed on battery power (running with
   the lid closed needs the power adapter), or when the battery runs low.
-- The remaining options are described under Features and remembered between
-  launches.
+- **Touchscreen**: Smart Touchscreen Mode (Ctrl+Opt+Cmd+S), Touch Drag
+  Scrolls and Touchscreen Adjust, for the lock screen.
+- **Lock Pointer / Unlock Pointer** (Ctrl+Opt+Cmd+L): toggles the lock.
+  Locking needs at least two screens.
+- **Lock Options**: which screen is the lock screen, and the options for
+  while locked.
+
+Options are remembered between launches, except Keep Display Awake.
 
 The menu bar icon shows the state: a pointer when idle, a lock while locked,
 and a coffee cup while keeping the display awake without a lock.
