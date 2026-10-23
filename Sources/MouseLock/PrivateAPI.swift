@@ -2,6 +2,7 @@
 // Each is optional: if a future macOS drops or ignores one, MouseLock keeps
 // working, just without that refinement.
 
+import ApplicationServices
 import CoreGraphics
 
 // Warping the pointer normally makes macOS ignore mouse input for ~0.25s,
@@ -32,3 +33,9 @@ let senderIDField = CGEventField(rawValue: 87)!
 // Only used to describe in the menu when the display will sleep.
 @_silgen_name("IOPMCopyActivePMPreferences")
 func IOPMCopyActivePMPreferences() -> Unmanaged<CFDictionary>?
+
+// The window number (as in the window list) of an Accessibility window
+// element. Private, but long used by window managers; without it, windows
+// are matched by their frame, which an app may still be changing.
+@_silgen_name("_AXUIElementGetWindow")
+func _AXUIElementGetWindow(_ element: AXUIElement, _ window: UnsafeMutablePointer<CGWindowID>) -> AXError

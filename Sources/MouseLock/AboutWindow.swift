@@ -170,7 +170,9 @@ final class AboutWindow {
             or starting MouseLock with it on, arranges all windows on the cells \
             without overlapping, front to back, each moving and resizing as little as \
             possible. A window only overlaps others if the free space would leave it \
-            less than half its size.
+            less than half its size. A new window goes into free space on the grid if \
+            there's enough; otherwise the largest window on that screen makes room by \
+            giving it half its space.
             """)
         option("Keep Display Awake", """
             Prevents display sleep, the screen saver and the idle password lock, \

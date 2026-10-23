@@ -6,6 +6,12 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Window Grid: a new window goes straight onto the grid, into free space if
+  there's enough, otherwise taking half of the largest window on its
+  screen.
+
 ## [0.6.0] - 2026-10-23
 
 ### Added

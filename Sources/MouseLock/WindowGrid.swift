@@ -16,7 +16,10 @@ final class WindowGrid {
     static let sizeChoices = Array(2...10)
 
     var enabled = false {
-        didSet { updateTap() }
+        didSet {
+            updateTap()
+            updateObservers()
+        }
     }
 
     private var tap: CFMachPort?
@@ -57,6 +60,7 @@ final class WindowGrid {
                 continue
             }
             let target = Self.closestFree(to: window.frame, in: grid, avoiding: taken)
+                ?? Self.snapped(window.frame, to: grid, edges: .all)
             if target != window.frame {
                 Self.fit(element, into: target, anchoring: [.left, .top])
             }
@@ -65,9 +69,8 @@ final class WindowGrid {
     }
 
     /// The grid rectangle whose edges are closest to `frame`'s in all, among
-    /// those not overlapping `taken` and at least half its area; the nearest
-    /// one if there's no such rectangle.
-    private static func closestFree(to frame: CGRect, in grid: Grid, avoiding taken: [CGRect]) -> CGRect {
+    /// those not overlapping `taken` and at least half its area.
+    private static func closestFree(to frame: CGRect, in grid: Grid, avoiding taken: [CGRect]) -> CGRect? {
         var best: (rect: CGRect, cost: CGFloat)?
         for left in grid.xs.indices.dropLast() {
             for right in grid.xs.indices where right > left {
@@ -85,7 +88,169 @@ final class WindowGrid {
                 }
             }
         }
-        return best?.rect ?? snapped(frame, to: grid, edges: .all)
+        return best?.rect
+    }
+
+    // MARK: New windows
+
+    /// Per app, an observer for its new windows.
+    private var observers: [pid_t: AXObserver] = [:]
+    private var workspaceObservers: [NSObjectProtocol] = []
+
+    private func updateObservers() {
+        if !enabled {
+            for (_, observer) in observers {
+                CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+            }
+            observers = [:]
+            workspaceObservers.forEach(NSWorkspace.shared.notificationCenter.removeObserver)
+            workspaceObservers = []
+            return
+        }
+        guard workspaceObservers.isEmpty, AXIsProcessTrusted() else { return }
+        NSWorkspace.shared.runningApplications.forEach { observe($0) }
+        let center = NSWorkspace.shared.notificationCenter
+        workspaceObservers = [
+            center.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil,
+                               queue: .main) { [weak self] note in
+                guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+                else { return }
+                self?.observe(app)
+            },
+            center.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil,
+                               queue: .main) { [weak self] note in
+                guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                      let observer = self?.observers.removeValue(forKey: app.processIdentifier) else { return }
+                CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+            },
+        ]
+    }
+
+    /// Watches `app` for new windows. A just launched app may not answer
+    /// yet, so this tries again a few times.
+    private func observe(_ app: NSRunningApplication, attempt: Int = 0) {
+        let pid = app.processIdentifier
+        guard enabled, app.activationPolicy == .regular, pid != ProcessInfo.processInfo.processIdentifier,
+              observers[pid] == nil, !app.isTerminated else { return }
+        let callback: AXObserverCallback = { _, element, _, refcon in
+            Unmanaged<WindowGrid>.fromOpaque(refcon!).takeUnretainedValue().windowCreated(element)
+        }
+        var observer: AXObserver?
+        guard AXObserverCreate(pid, callback, &observer) == .success, let observer else { return }
+        let result = AXObserverAddNotification(observer, AXUIElementCreateApplication(pid),
+                                               kAXWindowCreatedNotification as CFString,
+                                               Unmanaged.passUnretained(self).toOpaque())
+        guard result == .success else {
+            if attempt < 5 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                    self?.observe(app, attempt: attempt + 1)
+                }
+            }
+            return
+        }
+        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+        observers[pid] = observer
+    }
+
+    private func windowCreated(_ window: AXUIElement) {
+        // Let the app put the window where it wants first.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.place(window)
+        }
+    }
+
+    /// Puts a new window on the grid: in the closest free space if there's
+    /// enough; otherwise it takes half of the largest window on its screen
+    /// that spans at least two cells; failing that, its nearest grid spot.
+    private func place(_ window: AXUIElement) {
+        var subrole: CFTypeRef?
+        AXUIElementCopyAttributeValue(window, kAXSubroleAttribute as CFString, &subrole)
+        guard enabled, (subrole as? String) == kAXStandardWindowSubrole as String, Self.isResizable(window),
+              let frame = axFrame(window), frame.width >= 100, frame.height >= 60,
+              let area = Self.area(for: frame, areas: Self.usableAreas()) else { return }
+        let grid = Self.grid(for: area)
+        var number = CGWindowID(0)
+        let known = _AXUIElementGetWindow(window, &number) == .success
+        let others = Self.windowList().filter { other in
+            (known ? other.number != number : !Self.sameFrame(other.frame, frame))
+                && Self.overlapArea(other.frame, area) > 0
+        }
+        log("new window \(frame); others \(others.map(\.frame))")
+        if let free = Self.closestFree(to: frame, in: grid, avoiding: others.map(\.frame)) {
+            log("into free space \(free)")
+            Self.fit(window, into: free, anchoring: [.left, .top])
+            return
+        }
+        for other in others.sorted(by: { $0.frame.width * $0.frame.height > $1.frame.width * $1.frame.height }) {
+            let snapped = Self.snapped(other.frame, to: grid, edges: .all)
+            guard let halves = Self.halves(of: snapped, in: grid),
+                  let element = axWindow(pid: other.pid, frame: other.frame), Self.isResizable(element)
+            else { continue }
+            log("splitting \(other.frame) into \(halves.0) and \(halves.1)")
+            Self.fit(element, into: halves.0, anchoring: [.left, .top])
+            // The other window may not shrink that far (a minimum size): then
+            // the split moves to the next grid line past it, and it fills up to
+            // there, so there's no gap. If that leaves no room, it gets its
+            // space back and the new window its nearest spot.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                var rest = halves.1
+                let alongX = halves.1.minX > halves.0.minX
+                if let kept = axFrame(element), (alongX ? kept.maxX : kept.maxY) > (alongX ? rest.minX : rest.minY) + 1 {
+                    let lines = alongX ? grid.xs : grid.ys
+                    let end = alongX ? rest.maxX : rest.maxY
+                    let split = lines.first { $0 >= (alongX ? kept.maxX : kept.maxY) - 1 } ?? end
+                    if split < end {
+                        let first = alongX
+                            ? CGRect(x: snapped.minX, y: snapped.minY, width: split - snapped.minX, height: snapped.height)
+                            : CGRect(x: snapped.minX, y: snapped.minY, width: snapped.width, height: split - snapped.minY)
+                        rest = alongX
+                            ? CGRect(x: split, y: rest.minY, width: end - split, height: rest.height)
+                            : CGRect(x: rest.minX, y: split, width: rest.width, height: end - split)
+                        Self.log("kept \(kept); split moves: \(first) and \(rest)")
+                        Self.fit(element, into: first, anchoring: [.left, .top])
+                    } else {
+                        Self.log("kept \(kept); no room left, giving its space back")
+                        Self.fit(element, into: snapped, anchoring: [.left, .top])
+                        rest = Self.snapped(frame, to: grid, edges: .all)
+                    }
+                }
+                Self.fit(window, into: rest, anchoring: [.left, .top])
+            }
+            return
+        }
+        log("no room; nearest spot")
+        Self.fit(window, into: Self.snapped(frame, to: grid, edges: .all), anchoring: [.left, .top])
+    }
+
+    private func log(_ message: String) { Self.log(message) }
+
+    private static func log(_ message: String) {
+        guard debugLogging else { return }
+        FileHandle.standardError.write("window grid: \(message)\n".data(using: .utf8)!)
+    }
+
+    /// `rect` (on grid lines) split in two along its longer side, on the grid
+    /// line nearest its middle (if two are, the first part, which the window
+    /// being split keeps, gets the larger one); nil if it's only one cell
+    /// that way.
+    private static func halves(of rect: CGRect, in grid: Grid) -> (CGRect, CGRect)? {
+        let alongX = rect.width >= rect.height
+        let lines = (alongX ? grid.xs : grid.ys).filter { line in
+            alongX ? line > rect.minX && line < rect.maxX : line > rect.minY && line < rect.maxY
+        }
+        guard !lines.isEmpty else { return nil }
+        let mid = alongX ? rect.midX : rect.midY
+        let middle = lines.min { a, b in abs(a - mid) != abs(b - mid) ? abs(a - mid) < abs(b - mid) : a > b }!
+        return alongX
+            ? (CGRect(x: rect.minX, y: rect.minY, width: middle - rect.minX, height: rect.height),
+               CGRect(x: middle, y: rect.minY, width: rect.maxX - middle, height: rect.height))
+            : (CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: middle - rect.minY),
+               CGRect(x: rect.minX, y: middle, width: rect.width, height: rect.maxY - middle))
+    }
+
+    private static func sameFrame(_ a: CGRect, _ b: CGRect) -> Bool {
+        abs(a.minX - b.minX) < 2 && abs(a.minY - b.minY) < 2 && abs(a.width - b.width) < 2
+            && abs(a.height - b.height) < 2
     }
 
     private static func overlapArea(_ a: CGRect, _ b: CGRect) -> CGFloat {
@@ -264,14 +429,16 @@ final class WindowGrid {
 
     /// The grid of the screen with most of the window on it.
     private static func grid(for frame: CGRect, areas: [CGRect]) -> Grid? {
-        let overlaps = areas.map { area -> CGFloat in
-            let common = area.intersection(frame)
-            return common.isNull ? 0 : common.width * common.height
-        }
+        area(for: frame, areas: areas).map { grid(for: $0) }
+    }
+
+    /// The usable area of the screen with most of `frame` on it.
+    private static func area(for frame: CGRect, areas: [CGRect]) -> CGRect? {
+        let overlaps = areas.map { overlapArea($0, frame) }
         guard let best = overlaps.indices.max(by: { overlaps[$0] < overlaps[$1] }), overlaps[best] > 0 else {
             return nil
         }
-        return grid(for: areas[best])
+        return areas[best]
     }
 
     /// `frame` with the given edges moved to the nearest grid lines, keeping

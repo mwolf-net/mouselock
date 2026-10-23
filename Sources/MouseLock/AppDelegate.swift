@@ -375,7 +375,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         grid.state = windowGridOn ? .on : .off
         grid.keyEquivalent = windowGridHotKeyEquivalent
         grid.keyEquivalentModifierMask = hotKeyEquivalentModifiers
-        grid.toolTip = "Divides each screen into roughly square cells, as many as chosen under Window Grid Size. A window you resize or move snaps to the nearest cell edges, with an outline showing where while you drag. Turning it on also snaps all windows on screen to the cells, moving and resizing each as little as possible."
+        grid.toolTip = "Divides each screen into roughly square cells, as many as chosen under Window Grid Size. A window you resize or move snaps to the nearest cell edges, with an outline showing where while you drag. Turning it on also snaps all windows on screen to the cells, moving and resizing each as little as possible. New windows go into free space, or get half of the largest window's."
         menu.addItem(grid)
         // Sizes as each screen's columns × rows, main screen first.
         let sizes = NSMenuItem(title: "Window Grid Size", action: nil, keyEquivalent: "")

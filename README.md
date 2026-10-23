@@ -71,7 +71,8 @@ hotkey instead of restarting the browser.
   cells (4 along its short side, or as chosen under Window Grid Size), and
   snaps a window you resize or move to them, with an outline showing where
   while you drag. Turning it on arranges all windows on the cells without
-  overlapping, each moving and resizing as little as possible.
+  overlapping, each moving and resizing as little as possible. New windows
+  go into free space on the grid, or get half of the largest window's.
 - Start at login. No Dock icon, no windows, no network access.
 
 ## Requirements
