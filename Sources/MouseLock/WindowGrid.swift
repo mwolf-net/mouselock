@@ -294,6 +294,12 @@ final class WindowGrid {
             guard let element = axWindow(pid: other.pid, frame: other.frame) else { continue }
             log("making room: \(other.frame) -> \(frame)")
             fit(element, into: frame, anchoring: [.left, .top])
+            // An app may not let it get that small (a minimum size). If it
+            // overlaps anyway, it might as well keep its size.
+            if let actual = axFrame(element), overlapArea(actual, after) > 1 {
+                log("still overlapping at \(actual); back to \(other.frame)")
+                setAXFrame(element, other.frame)
+            }
         }
     }
 

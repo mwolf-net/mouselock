@@ -6,6 +6,12 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Window Grid: a window that should make room for one you drag, but can't
+  get small enough (an app's minimum size), keeps its size instead of
+  shrinking as far as it can and overlapping anyway.
+
 ## [0.9.0] - 2026-10-23
 
 ### Changed
