@@ -68,10 +68,10 @@ hotkey instead of restarting the browser.
   at the same fraction of their height, as if their corners touched. Handy
   for a Retina screen next to a lower resolution one of about the same size.
 - **Window Grid** (Ctrl+Opt+Cmd+W): divides each screen into roughly square
-  cells, 8 along its short side, and snaps a window you resize or move to
-  them, with an outline showing where while you drag.
-  Turning it on snaps all windows on screen to the cells, moving and
-  resizing each as little as possible.
+  cells (4 along its short side, or as chosen under Window Grid Size), and
+  snaps a window you resize or move to them, with an outline showing where
+  while you drag. Turning it on arranges all windows on the cells without
+  overlapping, each moving and resizing as little as possible.
 - Start at login. No Dock icon, no windows, no network access.
 
 ## Requirements
@@ -137,12 +137,15 @@ Click the pointer icon in the menu bar:
   Locking needs at least two screens.
 - **Smart Touchscreen Mode** (Ctrl+Opt+Cmd+S): toggles it for the lock
   screen.
+- **Window Grid** (Ctrl+Opt+Cmd+W): toggles window snapping; turning it on
+  arranges your windows on the grid. **Window Grid Size** picks how many
+  cells, shown per screen as columns × rows.
 - **Keep Display Awake**: keeps the display awake without locking (it always
-  is while locked). The menu also shows what happens first when idle,
-  such as "display off after 10 min", or that the display stays on anyway. Resets when MouseLock restarts. It only prevents sleep
-  from inactivity: a laptop still sleeps when its lid is closed on battery
-  power (running with the lid closed needs the power adapter), or when the
-  battery runs low.
+  is while locked). The menu also shows what happens first when idle, such
+  as "display off after 10 min", or that the display stays on anyway.
+  Resets when MouseLock restarts. It only prevents sleep from inactivity: a
+  laptop still sleeps when its lid is closed on battery power (running with
+  the lid closed needs the power adapter), or when the battery runs low.
 - The remaining options are described under Features and remembered between
   launches.
 

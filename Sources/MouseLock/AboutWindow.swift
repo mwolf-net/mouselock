@@ -162,12 +162,15 @@ final class AboutWindow {
             more than one screen sits on that side.
             """)
         option("Window Grid (Ctrl+Option+Cmd+W)", """
-            Divides each screen (minus menu bar and Dock) into roughly square cells, \
-            8 along its short side. When you resize a window, the edges you moved \
-            snap to the nearest cell edges; a window you move lines up with them. An \
-            outline shows where while you drag. Turning it on also snaps every window \
-            on screen to the cells, each edge to the nearest one, so windows move and \
-            change size as little as possible.
+            Divides each screen (minus menu bar and Dock) into roughly square cells: \
+            4 along its short side, or as chosen under Window Grid Size (shown per \
+            screen as columns × rows, main screen first). When you resize a window, \
+            the edges you moved snap to the nearest cell edges; a window you move \
+            lines up with them. An outline shows where while you drag. Turning it on, \
+            or starting MouseLock with it on, arranges all windows on the cells \
+            without overlapping, front to back, each moving and resizing as little as \
+            possible. A window only overlaps others if the free space would leave it \
+            less than half its size.
             """)
         option("Keep Display Awake", """
             Prevents display sleep, the screen saver and the idle password lock, \

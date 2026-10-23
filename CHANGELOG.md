@@ -9,9 +9,11 @@ All notable changes to MouseLock are listed here. The format follows
 ### Added
 
 - Window Grid (Ctrl+Option+Cmd+W): each screen is divided into roughly
-  square cells, 8 along its short side, and a window you resize or move
-  snaps to them, with an outline showing where while you drag. Turning it on snaps all windows on screen to the cells, moving and
-  resizing each as little as possible.
+  square cells (4 along its short side, or as chosen under Window Grid
+  Size), and a window you resize or move snaps to them, with an outline
+  showing where while you drag. Turning it on, or starting with it on,
+  arranges all windows on the cells without overlapping, each moving and
+  resizing as little as possible.
 
 ## [0.5.0] - 2026-10-23
 

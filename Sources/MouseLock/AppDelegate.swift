@@ -152,6 +152,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateState()
         registerHotKey()
         checkAccessibilityPermission()
+        // Started with the window grid on (say at login): arrange the windows
+        // once they're likely there.
+        if windowGridOn {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                guard let self, windowGridOn else { return }
+                windowGrid.arrangeAll()
+            }
+        }
         smartTouch.isTouchEvent = { [touchInput] event in touchInput.isTouch(event) }
         edgeMatcher.isTouchEvent = { [touchInput] event in touchInput.isTouch(event) }
         // Smart touch hides the pointer while it's on the touch screen.
@@ -367,8 +375,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         grid.state = windowGridOn ? .on : .off
         grid.keyEquivalent = windowGridHotKeyEquivalent
         grid.keyEquivalentModifierMask = hotKeyEquivalentModifiers
-        grid.toolTip = "Divides each screen into roughly square cells, 8 along its short side. A window you resize or move snaps to the nearest cell edges, with an outline showing where while you drag. Turning it on also snaps all windows on screen to the cells, moving and resizing each as little as possible."
+        grid.toolTip = "Divides each screen into roughly square cells, as many as chosen under Window Grid Size. A window you resize or move snaps to the nearest cell edges, with an outline showing where while you drag. Turning it on also snaps all windows on screen to the cells, moving and resizing each as little as possible."
         menu.addItem(grid)
+        // Sizes as each screen's columns × rows, main screen first.
+        let sizes = NSMenuItem(title: "Window Grid Size", action: nil, keyEquivalent: "")
+        let sizeMenu = NSMenu()
+        let areas = WindowGrid.usableAreas()
+        for cells in WindowGrid.sizeChoices {
+            let title = areas.map { area in
+                let (columns, rows) = WindowGrid.dimensions(of: area, cells: cells)
+                return "\(columns)×\(rows)"
+            }.joined(separator: "  ·  ")
+            let entry = item(title, #selector(gridSizeClicked(_:)))
+            entry.representedObject = cells
+            entry.state = cells == WindowGrid.cellsAlongShortSide ? .on : .off
+            sizeMenu.addItem(entry)
+        }
+        sizes.submenu = sizeMenu
+        menu.addItem(sizes)
         if locker.isLocked {
             let awake = NSMenuItem(title: "Keeping Display Awake (while locked)", action: nil, keyEquivalent: "")
             awake.state = .on
@@ -430,6 +454,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func toggleClicked() { toggle() }
 
     @objc func windowGridClicked() { toggleWindowGrid() }
+
+    @objc func gridSizeClicked(_ sender: NSMenuItem) {
+        guard let cells = sender.representedObject as? Int else { return }
+        WindowGrid.cellsAlongShortSide = cells
+        if windowGridOn { windowGrid.arrangeAll() }
+    }
 
     /// From the menu or the hotkey. Turning it on arranges the windows.
     func toggleWindowGrid() {

@@ -1,12 +1,19 @@
 import AppKit
 
 /// Window Grid: each screen's usable area (without menu bar and Dock) is
-/// divided into roughly square cells, 8 along its short side. While it's on,
+/// divided into roughly square cells, 4 along its short side by default
+/// (Window Grid Size in the menu). While it's on,
 /// a window that was resized has the edges that moved snapped to the nearest
 /// grid lines, and one that was moved lines up with them; a preview shows
-/// where while dragging. Turning it on snaps the edges of every window.
+/// where while dragging. Turning it on (or starting with it on) arranges all
+/// windows on the grid without overlapping.
 final class WindowGrid {
-    static let cellsAlongShortSide = 8
+    /// Cells along each screen's short side (menu choice, remembered).
+    static var cellsAlongShortSide: Int {
+        get { UserDefaults.standard.object(forKey: "gridCellsAlongShortSide") as? Int ?? 4 }
+        set { UserDefaults.standard.set(newValue, forKey: "gridCellsAlongShortSide") }
+    }
+    static let sizeChoices = Array(2...10)
 
     var enabled = false {
         didSet { updateTap() }
@@ -34,17 +41,56 @@ final class WindowGrid {
         static let all: Edges = [.left, .right, .top, .bottom]
     }
 
-    /// Snaps the edges of all windows on screen to the grid: each edge goes
-    /// to the nearest line, which keeps both moving and resizing small.
+    /// Snaps all windows on screen to the grid without overlapping, front to
+    /// back: each gets the grid rectangle closest to where it is (its edges
+    /// moving least in all) among those still free. If no free one keeps at
+    /// least half its area, it gets its nearest one anyway, overlapping
+    /// rather than shrinking to a sliver. Windows that can't be resized stay
+    /// put, taking up their space.
     func arrangeAll() {
         let areas = Self.usableAreas()
+        var taken: [CGRect] = []
         for window in Self.windowList() {
-            guard let grid = Self.grid(for: window.frame, areas: areas) else { continue }
-            let target = Self.snapped(window.frame, to: grid, edges: .all)
-            guard target != window.frame, let element = axWindow(pid: window.pid, frame: window.frame),
-                  Self.isResizable(element) else { continue }
-            Self.fit(element, into: target, anchoring: [.left, .top])
+            guard let element = axWindow(pid: window.pid, frame: window.frame) else { continue }
+            guard Self.isResizable(element), let grid = Self.grid(for: window.frame, areas: areas) else {
+                taken.append(window.frame)
+                continue
+            }
+            let target = Self.closestFree(to: window.frame, in: grid, avoiding: taken)
+            if target != window.frame {
+                Self.fit(element, into: target, anchoring: [.left, .top])
+            }
+            taken.append(axFrame(element) ?? target)
         }
+    }
+
+    /// The grid rectangle whose edges are closest to `frame`'s in all, among
+    /// those not overlapping `taken` and at least half its area; the nearest
+    /// one if there's no such rectangle.
+    private static func closestFree(to frame: CGRect, in grid: Grid, avoiding taken: [CGRect]) -> CGRect {
+        var best: (rect: CGRect, cost: CGFloat)?
+        for left in grid.xs.indices.dropLast() {
+            for right in grid.xs.indices where right > left {
+                for top in grid.ys.indices.dropLast() {
+                    for bottom in grid.ys.indices where bottom > top {
+                        let rect = CGRect(x: grid.xs[left], y: grid.ys[top], width: grid.xs[right] - grid.xs[left],
+                                          height: grid.ys[bottom] - grid.ys[top])
+                        let cost = abs(rect.minX - frame.minX) + abs(rect.maxX - frame.maxX)
+                            + abs(rect.minY - frame.minY) + abs(rect.maxY - frame.maxY)
+                        guard cost < best?.cost ?? .infinity,
+                              rect.width * rect.height >= frame.width * frame.height / 2,
+                              !taken.contains(where: { overlapArea($0, rect) > 1 }) else { continue }
+                        best = (rect, cost)
+                    }
+                }
+            }
+        }
+        return best?.rect ?? snapped(frame, to: grid, edges: .all)
+    }
+
+    private static func overlapArea(_ a: CGRect, _ b: CGRect) -> CGFloat {
+        let common = a.intersection(b)
+        return common.isNull ? 0 : common.width * common.height
     }
 
     /// Gives `window` the frame `target`. An app may round the size (say to
@@ -200,13 +246,18 @@ final class WindowGrid {
         }
     }
 
-    static func grid(for area: CGRect) -> Grid {
+    /// Columns and rows for an area with `cells` along its short side, the
+    /// other side getting as many as keeps the cells closest to square.
+    static func dimensions(of area: CGRect, cells: Int = cellsAlongShortSide) -> (columns: Int, rows: Int) {
         let landscape = area.width >= area.height
         let short = landscape ? area.height : area.width
         let long = landscape ? area.width : area.height
-        let across = max(1, Int((long / (short / CGFloat(cellsAlongShortSide))).rounded()))
-        let columns = landscape ? across : cellsAlongShortSide
-        let rows = landscape ? cellsAlongShortSide : across
+        let across = max(1, Int((long / (short / CGFloat(cells))).rounded()))
+        return landscape ? (across, cells) : (cells, across)
+    }
+
+    static func grid(for area: CGRect) -> Grid {
+        let (columns, rows) = dimensions(of: area)
         return Grid(xs: (0...columns).map { (area.minX + area.width * CGFloat($0) / CGFloat(columns)).rounded() },
                     ys: (0...rows).map { (area.minY + area.height * CGFloat($0) / CGFloat(rows)).rounded() })
     }
