@@ -67,6 +67,9 @@ hotkey instead of restarting the browser.
 - **Match Screen Edges**: the pointer crosses between screens side by side
   at the same fraction of their height, as if their corners touched. Handy
   for a Retina screen next to a lower resolution one of about the same size.
+- **Wrap Pointer Around**: pushing the pointer off the right side of the
+  rightmost screen brings it in on the left of the leftmost one, and the
+  other way round.
 - **Window Grid** (Ctrl+Opt+Cmd+W): divides each screen into roughly square
   cells (4 along its short side, or as chosen under Window Grid Size), and
   snaps a window you resize or move to them. Windows against an edge you

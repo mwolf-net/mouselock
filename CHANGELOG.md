@@ -6,6 +6,13 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Wrap Pointer Around: pushing the pointer off the right side of the
+  rightmost screen brings it in on the left of the leftmost one, and the
+  other way round. Also while dragging a window or a file, but not while
+  resizing a window by its edge.
+
 ## [0.7.0] - 2026-10-23
 
 ### Added

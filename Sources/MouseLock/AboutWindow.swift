@@ -161,6 +161,14 @@ final class AboutWindow {
             one of about the same size. Not for screens above one another, nor when \
             more than one screen sits on that side.
             """)
+        option("Wrap Pointer Around", """
+            Pushing the pointer off the right side of the rightmost screen brings it \
+            in on the left of the leftmost one, and the other way round, as if the \
+            screens stood in a cylinder. It keeps its height (with Match Screen \
+            Edges, the same fraction of the height). Also while dragging a window or \
+            a file along, but not while resizing a window by its edge, nor while \
+            locked.
+            """)
         option("Window Grid (Ctrl+Option+Cmd+W)", """
             Divides each screen (minus menu bar and Dock) into roughly square cells: \
             4 along its short side, or as chosen under Window Grid Size (shown per \

@@ -98,6 +98,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         get { UserDefaults.standard.bool(forKey: "windowGrid") }
         set { UserDefaults.standard.set(newValue, forKey: "windowGrid") }
     }
+    /// Wrap Pointer Around (menu toggle, remembered, off by default).
+    var wrapPointer: Bool {
+        get { UserDefaults.standard.bool(forKey: "wrapPointer") }
+        set { UserDefaults.standard.set(newValue, forKey: "wrapPointer") }
+    }
     /// Match Screen Edges (menu toggle, remembered, off by default).
     var matchScreenEdges: Bool {
         get { UserDefaults.standard.bool(forKey: "matchScreenEdges") }
@@ -227,6 +232,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Locked, the pointer stays on one screen anyway.
         edgeMatcher.excluded = smartTouch.keepMouseOff ? smartTouch.screen : nil
         edgeMatcher.enabled = matchScreenEdges && !locker.isLocked
+        edgeMatcher.wrap = wrapPointer && !locker.isLocked
         windowGrid.enabled = windowGridOn
 
         let symbol = !AXIsProcessTrusted() ? "exclamationmark.triangle"
@@ -371,6 +377,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(edges)
             menu.addItem(.separator())
         }
+        let wrap = item("Wrap Pointer Around", #selector(wrapPointerClicked))
+        wrap.state = wrapPointer ? .on : .off
+        wrap.toolTip = "Pushing the pointer off the right side of the rightmost screen brings it in on the left of the leftmost one, and the other way round, as if the screens were on a cylinder. Also while dragging a window or a file, but not while resizing a window by its edge, nor while locked."
+        menu.addItem(wrap)
         let grid = item("Window Grid", #selector(windowGridClicked))
         grid.state = windowGridOn ? .on : .off
         grid.keyEquivalent = windowGridHotKeyEquivalent
@@ -466,6 +476,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         windowGridOn.toggle()
         updateState()
         if windowGridOn { windowGrid.arrangeAll() }
+    }
+
+    @objc func wrapPointerClicked() {
+        wrapPointer.toggle()
+        updateState()
     }
 
     @objc func matchScreenEdgesClicked() {
