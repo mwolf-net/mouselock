@@ -25,6 +25,10 @@ final class WindowGrid {
     private var tap: CFMachPort?
     /// The window under a press, and its frame then.
     private var pressed: (number: CGWindowID, pid: pid_t, frame: CGRect)?
+    /// Whether the mouse moved while pressed: only a drag counts. An app may
+    /// change a window's frame during a mere click (say gvim fitting its
+    /// size to whole characters just after opening).
+    private var dragged = false
     private let preview = GridPreview()
     private var previewWork: DispatchWorkItem?
 
@@ -51,6 +55,7 @@ final class WindowGrid {
     /// rather than shrinking to a sliver. Windows that can't be resized stay
     /// put, taking up their space.
     func arrangeAll() {
+        log("arranging all windows")
         let areas = Self.usableAreas()
         var taken: [CGRect] = []
         for window in Self.windowList() {
@@ -62,6 +67,7 @@ final class WindowGrid {
             let target = Self.closestFree(to: window.frame, in: grid, avoiding: taken)
                 ?? Self.snapped(window.frame, to: grid, edges: .all)
             if target != window.frame {
+                log("arranging: \(window.frame) -> \(target)")
                 Self.fit(element, into: target, anchoring: [.left, .top])
             }
             taken.append(axFrame(element) ?? target)
@@ -159,67 +165,181 @@ final class WindowGrid {
         }
     }
 
-    /// Puts a new window on the grid: in the closest free space if there's
-    /// enough; otherwise it takes half of the largest window on its screen
-    /// that spans at least two cells; failing that, its nearest grid spot.
+    /// Puts a new window on the screen with the pointer, at its smallest size
+    /// or one cell, whichever is larger, on the grid: in the free spot
+    /// closest to the middle; with none free, on top of other windows where
+    /// it hides the smallest share of any one of them (partly covering
+    /// several rather than hiding one). It never pushes others aside.
     private func place(_ window: AXUIElement) {
         var subrole: CFTypeRef?
         AXUIElementCopyAttributeValue(window, kAXSubroleAttribute as CFString, &subrole)
+        let pointer = pointerLocation()
+        let areas = Self.usableAreas()
         guard enabled, (subrole as? String) == kAXStandardWindowSubrole as String, Self.isResizable(window),
               let frame = axFrame(window), frame.width >= 100, frame.height >= 60,
-              let area = Self.area(for: frame, areas: Self.usableAreas()) else { return }
+              let area = areas.first(where: { $0.contains(pointer) }) ?? Self.area(for: frame, areas: areas)
+        else { return }
         let grid = Self.grid(for: area)
+        let cell = CGSize(width: grid.xs[1] - grid.xs[0], height: grid.ys[1] - grid.ys[0])
+
+        // Its smallest size: ask for a tiny one, and see what the app allows.
+        var tiny = CGSize(width: 1, height: 1)
+        if let value = AXValueCreate(.cgSize, &tiny) {
+            AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, value)
+        }
+        let smallest = axFrame(window)?.size ?? cell
+        let columns = min(grid.xs.count - 1, max(1, Int((smallest.width / cell.width - 0.05).rounded(.up))))
+        let rows = min(grid.ys.count - 1, max(1, Int((smallest.height / cell.height - 0.05).rounded(.up))))
+
         var number = CGWindowID(0)
         let known = _AXUIElementGetWindow(window, &number) == .success
         let others = Self.windowList().filter { other in
             (known ? other.number != number : !Self.sameFrame(other.frame, frame))
                 && Self.overlapArea(other.frame, area) > 0
-        }
-        log("new window \(frame); others \(others.map(\.frame))")
-        if let free = Self.closestFree(to: frame, in: grid, avoiding: others.map(\.frame)) {
-            log("into free space \(free)")
-            Self.fit(window, into: free, anchoring: [.left, .top])
-            return
-        }
-        for other in others.sorted(by: { $0.frame.width * $0.frame.height > $1.frame.width * $1.frame.height }) {
-            let snapped = Self.snapped(other.frame, to: grid, edges: .all)
-            guard let halves = Self.halves(of: snapped, in: grid),
-                  let element = axWindow(pid: other.pid, frame: other.frame), Self.isResizable(element)
-            else { continue }
-            log("splitting \(other.frame) into \(halves.0) and \(halves.1)")
-            Self.fit(element, into: halves.0, anchoring: [.left, .top])
-            // The other window may not shrink that far (a minimum size): then
-            // the split moves to the next grid line past it, and it fills up to
-            // there, so there's no gap. If that leaves no room, it gets its
-            // space back and the new window its nearest spot.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                var rest = halves.1
-                let alongX = halves.1.minX > halves.0.minX
-                if let kept = axFrame(element), (alongX ? kept.maxX : kept.maxY) > (alongX ? rest.minX : rest.minY) + 1 {
-                    let lines = alongX ? grid.xs : grid.ys
-                    let end = alongX ? rest.maxX : rest.maxY
-                    let split = lines.first { $0 >= (alongX ? kept.maxX : kept.maxY) - 1 } ?? end
-                    if split < end {
-                        let first = alongX
-                            ? CGRect(x: snapped.minX, y: snapped.minY, width: split - snapped.minX, height: snapped.height)
-                            : CGRect(x: snapped.minX, y: snapped.minY, width: snapped.width, height: split - snapped.minY)
-                        rest = alongX
-                            ? CGRect(x: split, y: rest.minY, width: end - split, height: rest.height)
-                            : CGRect(x: rest.minX, y: split, width: rest.width, height: end - split)
-                        Self.log("kept \(kept); split moves: \(first) and \(rest)")
-                        Self.fit(element, into: first, anchoring: [.left, .top])
-                    } else {
-                        Self.log("kept \(kept); no room left, giving its space back")
-                        Self.fit(element, into: snapped, anchoring: [.left, .top])
-                        rest = Self.snapped(frame, to: grid, edges: .all)
-                    }
-                }
-                Self.fit(window, into: rest, anchoring: [.left, .top])
+        }.map(\.frame)
+
+        // Score each spot: the largest share of one window it hides, then the
+        // total area it covers, then how far it is from the middle.
+        var best: (rect: CGRect, score: (CGFloat, CGFloat, CGFloat))?
+        for left in 0...(grid.xs.count - 1 - columns) {
+            for top in 0...(grid.ys.count - 1 - rows) {
+                let rect = CGRect(x: grid.xs[left], y: grid.ys[top], width: grid.xs[left + columns] - grid.xs[left],
+                                  height: grid.ys[top + rows] - grid.ys[top])
+                let covered = others.map { Self.overlapArea($0, rect) }
+                let share = zip(others, covered).map { $1 / max(1, $0.width * $0.height) }.max() ?? 0
+                let score = (share, covered.reduce(0, +), hypot(rect.midX - area.midX, rect.midY - area.midY))
+                if best.map({ score < $0.score }) ?? true { best = (rect, score) }
             }
-            return
         }
-        log("no room; nearest spot")
-        Self.fit(window, into: Self.snapped(frame, to: grid, edges: .all), anchoring: [.left, .top])
+        guard let target = best?.rect else { return }
+        log("new window \(frame), smallest \(smallest); placed at \(target)")
+        Self.fit(window, into: target, anchoring: [.left, .top])
+        AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+    }
+
+    // MARK: Pushing and pulling
+
+    private struct Direction: OptionSet {
+        let rawValue: Int
+        static let left = Direction(rawValue: 1)
+        static let right = Direction(rawValue: 2)
+        static let up = Direction(rawValue: 4)
+        static let down = Direction(rawValue: 8)
+    }
+
+    /// After a drag took window `number` from `before` to `after`: only
+    /// windows directly involved change, never ones further along. Windows
+    /// against an edge that was dragged follow it with their near edge,
+    /// growing or shrinking
+    /// (pull and push). Windows it then overlaps are trimmed on the side
+    /// facing it, down to one cell; if that isn't enough, one may move
+    /// instead, but only into free space. Otherwise it's left overlapping.
+    private static func makeRoom(for number: CGWindowID, from before: CGRect, to after: CGRect) {
+        for (other, frame) in roomPlan(for: number, from: before, to: after) {
+            guard let element = axWindow(pid: other.pid, frame: other.frame) else { continue }
+            log("making room: \(other.frame) -> \(frame)")
+            fit(element, into: frame, anchoring: [.left, .top])
+        }
+    }
+
+    /// The windows `makeRoom` would change, and how: also for the preview.
+    private static func roomPlan(for number: CGWindowID, from before: CGRect,
+                                 to after: CGRect) -> [(WindowInfo, CGRect)] {
+        guard let area = area(for: after, areas: usableAreas()) else { return [] }
+        let grid = grid(for: area)
+        let cell = CGSize(width: grid.xs[1] - grid.xs[0], height: grid.ys[1] - grid.ys[0])
+        // Neighbours may sit a little apart (an app rounding its size).
+        let near = min(cell.width, cell.height) / 4
+        let others = windowList().filter { $0.number != number && overlapArea($0.frame, area) > 0 }
+        var frames = Dictionary(uniqueKeysWithValues: others.map { ($0.number, $0.frame) })
+        let resized = abs(after.width - before.width) > 1 || abs(after.height - before.height) > 1
+
+        var directions: Direction = []
+        if resized {
+            if after.maxX > before.maxX + 1 { directions.insert(.right) }
+            if after.minX < before.minX - 1 { directions.insert(.left) }
+            if after.maxY > before.maxY + 1 { directions.insert(.down) }
+            if after.minY < before.minY - 1 { directions.insert(.up) }
+            // Edges that moved take the near edge of the windows against them
+            // along, as long as those keep at least one cell.
+            for other in others {
+                let frame = other.frame
+                let besideY = frame.minY < before.maxY - 1 && frame.maxY > before.minY + 1
+                let besideX = frame.minX < before.maxX - 1 && frame.maxX > before.minX + 1
+                var edges = (minX: frame.minX, maxX: frame.maxX, minY: frame.minY, maxY: frame.maxY)
+                if besideY, abs(after.maxX - before.maxX) > 1, abs(frame.minX - before.maxX) <= near {
+                    edges.minX = after.maxX
+                } else if besideY, abs(after.minX - before.minX) > 1, abs(frame.maxX - before.minX) <= near {
+                    edges.maxX = after.minX
+                }
+                if besideX, abs(after.maxY - before.maxY) > 1, abs(frame.minY - before.maxY) <= near {
+                    edges.minY = after.maxY
+                } else if besideX, abs(after.minY - before.minY) > 1, abs(frame.maxY - before.minY) <= near {
+                    edges.maxY = after.minY
+                }
+                let followed = CGRect(x: edges.minX, y: edges.minY,
+                                      width: edges.maxX - edges.minX, height: edges.maxY - edges.minY)
+                if followed.width >= cell.width - 1, followed.height >= cell.height - 1 {
+                    frames[other.number] = followed
+                }
+            }
+        } else {
+            if after.minX > before.minX + 1 { directions.insert(.right) }
+            if after.minX < before.minX - 1 { directions.insert(.left) }
+            if after.minY > before.minY + 1 { directions.insert(.down) }
+            if after.minY < before.minY - 1 { directions.insert(.up) }
+        }
+
+        // Windows still overlapping it: trim, or else move into free space.
+        for other in others {
+            guard let frame = frames[other.number], overlapArea(frame, after) > 1 else { continue }
+            var rest = frames
+            rest[other.number] = nil
+            if let trimmed = trim(frame, clearOf: after, directions: directions, cell: cell) {
+                frames[other.number] = trimmed
+            } else if let moved = move(frame, clearOf: after, directions: directions, within: area,
+                                       avoiding: Array(rest.values)) {
+                frames[other.number] = moved
+            }
+        }
+
+        return others.compactMap { other in
+            frames[other.number].flatMap { sameFrame($0, other.frame) ? nil : (other, $0) }
+        }
+    }
+
+    /// `frame` with one edge pulled back so it no longer overlaps `pusher`,
+    /// keeping at least one cell: whichever side loses least area (on a
+    /// tie, the side matching `directions`). Nil if no side works.
+    private static func trim(_ frame: CGRect, clearOf pusher: CGRect, directions: Direction,
+                             cell: CGSize) -> CGRect? {
+        let options: [(Direction, CGRect)] = [
+            (.right, CGRect(x: pusher.maxX, y: frame.minY, width: frame.maxX - pusher.maxX, height: frame.height)),
+            (.left, CGRect(x: frame.minX, y: frame.minY, width: pusher.minX - frame.minX, height: frame.height)),
+            (.down, CGRect(x: frame.minX, y: pusher.maxY, width: frame.width, height: frame.maxY - pusher.maxY)),
+            (.up, CGRect(x: frame.minX, y: frame.minY, width: frame.width, height: pusher.minY - frame.minY)),
+        ].filter { $0.1.width >= cell.width - 1 && $0.1.height >= cell.height - 1 }
+        return options.max { a, b in
+            let areaA = (a.1.width * a.1.height).rounded(), areaB = (b.1.width * b.1.height).rounded()
+            return areaA != areaB ? areaA < areaB : !directions.contains(a.0) && directions.contains(b.0)
+        }?.1
+    }
+
+    /// `frame` moved just clear of `pusher` (the way of `directions` if
+    /// possible), if it then fits within `area` without overlapping anything.
+    private static func move(_ frame: CGRect, clearOf pusher: CGRect, directions: Direction,
+                             within area: CGRect, avoiding taken: [CGRect]) -> CGRect? {
+        let moves: [(Direction, CGRect)] = [
+            (.right, frame.offsetBy(dx: pusher.maxX - frame.minX, dy: 0)),
+            (.left, frame.offsetBy(dx: pusher.minX - frame.maxX, dy: 0)),
+            (.down, frame.offsetBy(dx: 0, dy: pusher.maxY - frame.minY)),
+            (.up, frame.offsetBy(dx: 0, dy: pusher.minY - frame.maxY)),
+        ].filter { move in
+            area.insetBy(dx: -1, dy: -1).contains(move.1) && !taken.contains { overlapArea($0, move.1) > 1 }
+        }
+        let preferred = moves.filter { directions.contains($0.0) }
+        let distance = { (rect: CGRect) in abs(rect.minX - frame.minX) + abs(rect.minY - frame.minY) }
+        return (preferred.isEmpty ? moves : preferred).min { distance($0.1) < distance($1.1) }?.1
     }
 
     private func log(_ message: String) { Self.log(message) }
@@ -227,25 +347,6 @@ final class WindowGrid {
     private static func log(_ message: String) {
         guard debugLogging else { return }
         FileHandle.standardError.write("window grid: \(message)\n".data(using: .utf8)!)
-    }
-
-    /// `rect` (on grid lines) split in two along its longer side, on the grid
-    /// line nearest its middle (if two are, the first part, which the window
-    /// being split keeps, gets the larger one); nil if it's only one cell
-    /// that way.
-    private static func halves(of rect: CGRect, in grid: Grid) -> (CGRect, CGRect)? {
-        let alongX = rect.width >= rect.height
-        let lines = (alongX ? grid.xs : grid.ys).filter { line in
-            alongX ? line > rect.minX && line < rect.maxX : line > rect.minY && line < rect.maxY
-        }
-        guard !lines.isEmpty else { return nil }
-        let mid = alongX ? rect.midX : rect.midY
-        let middle = lines.min { a, b in abs(a - mid) != abs(b - mid) ? abs(a - mid) < abs(b - mid) : a > b }!
-        return alongX
-            ? (CGRect(x: rect.minX, y: rect.minY, width: middle - rect.minX, height: rect.height),
-               CGRect(x: middle, y: rect.minY, width: rect.maxX - middle, height: rect.height))
-            : (CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: middle - rect.minY),
-               CGRect(x: rect.minX, y: middle, width: rect.width, height: rect.maxY - middle))
     }
 
     private static func sameFrame(_ a: CGRect, _ b: CGRect) -> Bool {
@@ -332,7 +433,9 @@ final class WindowGrid {
             let point = event.location
             pressed = Self.windowList().first { $0.frame.insetBy(dx: -8, dy: -8).contains(point) }
                 .map { ($0.number, $0.pid, $0.frame) }
+            dragged = false
         case .leftMouseDragged:
+            dragged = true
             // Show where the window would snap, about 30 times a second at most.
             guard pressed != nil, previewWork == nil else { return }
             let work = DispatchWorkItem { [weak self] in
@@ -340,7 +443,8 @@ final class WindowGrid {
                 previewWork = nil
                 guard let pressed, let now = Self.frame(of: pressed.number),
                       let snap = Self.snap(from: pressed.frame, to: now) else { return preview.hide() }
-                preview.show(snap.target)
+                let others = Self.roomPlan(for: pressed.number, from: pressed.frame, to: snap.target)
+                preview.show(snap.target, others: others.map(\.1))
             }
             previewWork = work
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.03, execute: work)
@@ -348,14 +452,15 @@ final class WindowGrid {
             previewWork?.cancel()
             previewWork = nil
             preview.hide()
-            guard let pressed else { return }
+            guard let pressed, dragged else { self.pressed = nil; return }
             self.pressed = nil
             // Let the app finish the resize or move first.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
                 guard let self, enabled, let now = Self.frame(of: pressed.number),
-                      let snap = Self.snap(from: pressed.frame, to: now), snap.target != now,
+                      let snap = Self.snap(from: pressed.frame, to: now),
                       let element = axWindow(pid: pressed.pid, frame: now) else { return }
-                Self.fit(element, into: snap.target, anchoring: snap.anchoring)
+                if snap.target != now { Self.fit(element, into: snap.target, anchoring: snap.anchoring) }
+                Self.makeRoom(for: pressed.number, from: pressed.frame, to: axFrame(element) ?? snap.target)
             }
         default:
             break
@@ -512,23 +617,27 @@ final class WindowGrid {
 
 /// The outline of where a dragged window will snap to.
 private final class GridPreview {
-    private var panel: NSPanel?
+    /// One panel per outline, reused: the first for the dragged window, the
+    /// rest for windows that would make room.
+    private var panels: [NSPanel] = []
 
-    /// `frame` in global coordinates (top left origin).
-    func show(_ frame: CGRect) {
+    /// Frames in global coordinates (top left origin).
+    func show(_ frame: CGRect, others: [CGRect] = []) {
         guard let height = NSScreen.screens.first?.frame.height else { return }
-        let panel = self.panel ?? makePanel()
-        self.panel = panel
-        panel.setFrame(NSRect(x: frame.minX, y: height - frame.maxY, width: frame.width, height: frame.height),
-                       display: true)
-        panel.orderFrontRegardless()
+        for (index, rect) in ([frame] + others).enumerated() {
+            if index == panels.count { panels.append(makePanel(main: index == 0)) }
+            panels[index].setFrame(NSRect(x: rect.minX, y: height - rect.maxY, width: rect.width,
+                                          height: rect.height), display: true)
+            panels[index].orderFrontRegardless()
+        }
+        for panel in panels.dropFirst(1 + others.count) { panel.orderOut(nil) }
     }
 
     func hide() {
-        panel?.orderOut(nil)
+        panels.forEach { $0.orderOut(nil) }
     }
 
-    private func makePanel() -> NSPanel {
+    private func makePanel(main: Bool) -> NSPanel {
         let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
                             backing: .buffered, defer: true)
         panel.level = .floating
@@ -537,12 +646,13 @@ private final class GridPreview {
         panel.hasShadow = false
         panel.ignoresMouseEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        let color = main ? NSColor.controlAccentColor : NSColor.systemGray
         let view = NSView()
         view.wantsLayer = true
         view.layer?.cornerRadius = 10
         view.layer?.borderWidth = 2
-        view.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.8).cgColor
-        view.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.15).cgColor
+        view.layer?.borderColor = color.withAlphaComponent(0.8).cgColor
+        view.layer?.backgroundColor = color.withAlphaComponent(main ? 0.15 : 0.1).cgColor
         view.autoresizingMask = [.width, .height]
         panel.contentView = view
         return panel
