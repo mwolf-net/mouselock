@@ -6,6 +6,11 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Touch Screen menu: a None choice, the default when no USB touch screen is
+  connected; with a single screen it isn't shown at all.
+
 ## [0.10.1] - 2026-10-24
 
 ### Changed

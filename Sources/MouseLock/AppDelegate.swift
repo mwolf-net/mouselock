@@ -143,14 +143,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         set { UserDefaults.standard.set(newValue, forKey: "touchDragScrollsOn") }
     }
 
-    /// The touch screen picked in the menu, by UUID. Remembered.
+    /// The touch screen picked in the menu, by UUID, or `noTouchScreen`.
+    /// Remembered.
     var chosenTouchScreenUUID: String? {
         get { UserDefaults.standard.string(forKey: "touchScreenUUID") }
         set { UserDefaults.standard.set(newValue, forKey: "touchScreenUUID") }
     }
 
-    /// The touch screen, for Touchscreen Adjust (where touches belong): the
-    /// one picked in the menu; else one that
+    static let noTouchScreen = "none"
+
+    /// The touch screen, for Touchscreen Adjust (where touches belong): with
+    /// one screen, that one; else the one picked in the menu (or none); else
+    /// none if no USB touch screen is connected; else one that
     /// had Smart Touchscreen Mode on (when that was per screen); else the lock
     /// screen picked in the menu (where the touch options used to apply);
     /// else the lock screen's default. (Which display a USB touch screen is
@@ -158,8 +162,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var touchScreen: CGDirectDisplayID? {
         let displays = Display.all()
         let byUUID = { (uuid: String?) in displays.first { uuid != nil && displayUUID($0.id) == uuid }?.id }
-        return byUUID(chosenTouchScreenUUID)
-            ?? displays.first { isEnabled(Self.smartTouchKey, on: $0.id) }?.id
+        if displays.count == 1 { return displays[0].id }
+        if chosenTouchScreenUUID == Self.noTouchScreen { return nil }
+        if let chosen = byUUID(chosenTouchScreenUUID) { return chosen }
+        guard TouchInput.touchScreenConnected() else { return nil }
+        return displays.first { isEnabled(Self.smartTouchKey, on: $0.id) }?.id
             ?? byUUID(chosenLockScreenUUID)
             ?? defaultLockScreen()
     }
@@ -415,29 +422,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let adjust = item("Touchscreen Adjust", #selector(touchAdjustClicked))
         adjust.state = touchAdjust(on: touchScreen) ? .on : .off
-        adjust.isEnabled = canLock
+        adjust.isEnabled = canLock && touchScreen != nil
         adjust.toolTip = "Puts touches where the finger is: macOS sometimes sends a touch screen's taps to the main display, and doesn't rotate them along with a rotated screen. Also makes two-finger scrolling scroll where the fingers are, and ignores pinch (which the screen sends as screen-zoom key presses). On by default when a USB touch screen is connected."
         adjust.indentationLevel = 1
         menu.addItem(adjust)
         // Which screen is the touch screen, as a submenu: for Touchscreen
-        // Adjust.
-        let touchScreen = self.touchScreen
-        let touchName = displays.first { $0.id == touchScreen }?.name ?? "none"
-        let touchHeader = NSMenuItem(title: "Touch Screen: \(touchName)", action: nil, keyEquivalent: "")
-        let touchMenu = NSMenu()
-        touchMenu.autoenablesItems = false
-        for display in displays {
-            let title = display.name + (display.isBuiltin ? " (built-in)" : "")
-            let entry = item(title, #selector(touchScreenClicked(_:)))
-            entry.representedObject = NSNumber(value: display.id)
-            entry.state = display.id == touchScreen ? .on : .off
-            entry.toolTip = "This is the touch screen. Your choice is remembered whenever this screen is connected."
-            touchMenu.addItem(entry)
+        // Adjust. With one screen there's nothing to choose.
+        if displays.count > 1 {
+            let touchScreen = self.touchScreen
+            let touchName = displays.first { $0.id == touchScreen }?.name ?? "None"
+            let touchHeader = NSMenuItem(title: "Touch Screen: \(touchName)", action: nil, keyEquivalent: "")
+            let touchMenu = NSMenu()
+            touchMenu.autoenablesItems = false
+            let none = item("None", #selector(touchScreenClicked(_:)))
+            none.state = touchScreen == nil ? .on : .off
+            none.toolTip = "None of the screens is a touch screen. The default when no USB touch screen is connected."
+            touchMenu.addItem(none)
+            touchMenu.addItem(.separator())
+            for display in displays {
+                let title = display.name + (display.isBuiltin ? " (built-in)" : "")
+                let entry = item(title, #selector(touchScreenClicked(_:)))
+                entry.representedObject = NSNumber(value: display.id)
+                entry.state = display.id == touchScreen ? .on : .off
+                entry.toolTip = "This is the touch screen. Your choice is remembered whenever this screen is connected."
+                touchMenu.addItem(entry)
+            }
+            touchHeader.submenu = touchMenu
+            touchHeader.toolTip = "Which screen is the touch screen: Touchscreen Adjust moves touches there. MouseLock can't tell by itself, since a touch screen's touch part is a separate USB device."
+            touchHeader.indentationLevel = 1
+            menu.addItem(touchHeader)
         }
-        touchHeader.submenu = touchMenu
-        touchHeader.toolTip = "Which screen is the touch screen: Touchscreen Adjust moves touches there. MouseLock can't tell by itself, since a touch screen's touch part is a separate USB device."
-        touchHeader.indentationLevel = 1
-        menu.addItem(touchHeader)
 
 
         menu.addItem(.separator())
@@ -538,8 +552,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func touchScreenClicked(_ sender: NSMenuItem) {
-        guard let number = sender.representedObject as? NSNumber else { return }
-        chosenTouchScreenUUID = displayUUID(number.uint32Value)
+        if let number = sender.representedObject as? NSNumber {
+            chosenTouchScreenUUID = displayUUID(number.uint32Value)
+        } else {
+            chosenTouchScreenUUID = Self.noTouchScreen
+        }
         updateState()
     }
 

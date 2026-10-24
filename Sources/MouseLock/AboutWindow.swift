@@ -182,7 +182,9 @@ final class AboutWindow {
         option("Touch Screen", """
             Which screen is the touch screen, where Touchscreen Adjust moves touches. \
             A touch screen's touch part is a separate USB device, so MouseLock can't tell which screen it is \
-            by itself; a screen you pick is remembered whenever it's connected.
+            by itself; a screen you pick is remembered whenever it's connected. Pick None if \
+            none of them is (the default when no USB touch screen is connected). Not \
+            shown with a single screen.
             """)
 
         heading("Lock")

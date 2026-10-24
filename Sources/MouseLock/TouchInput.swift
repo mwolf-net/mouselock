@@ -21,8 +21,8 @@ import IOKit
 /// reports as a mouse, but its USB device also has a HID "Touch Screen"
 /// digitizer interface.
 final class TouchInput {
-    /// The display that is the touch screen (the lock screen); nil turns
-    /// everything off.
+    /// The display that is the touch screen, where `remap` moves touches;
+    /// nil turns remapping off.
     var touchScreen: CGDirectDisplayID? {
         didSet { updateTap() }
     }
@@ -66,7 +66,7 @@ final class TouchInput {
     private static let holdDelay: TimeInterval = 0.4
 
     private func updateTap() {
-        let active = touchScreen != nil && (remap || dragToScroll || blockRightClick)
+        let active = (remap && touchScreen != nil) || dragToScroll || blockRightClick
         if !active {
             if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
             gesture = .none
@@ -116,12 +116,12 @@ final class TouchInput {
         }
         // Skip events we posted ourselves, including smart touch's replays.
         let marker = event.getIntegerValueField(.eventSourceUserData)
-        guard let touchScreen, marker != Self.replayMarker, marker != SmartTouch.replayMarker,
+        guard marker != Self.replayMarker, marker != SmartTouch.replayMarker,
               isTouchScreen(sender: event.getIntegerValueField(senderIDField)) else { return pass }
 
         watchForStuckTouch(type)
 
-        if remap {
+        if remap, let touchScreen {
             if let handled = adjustTwoFingerGesture(type: type, event: event, touchScreen: touchScreen) {
                 return handled
             }
