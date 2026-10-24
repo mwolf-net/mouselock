@@ -6,6 +6,12 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Window Grid: a window being pushed by one you enlarge, but that can't get
+  any smaller (such as System Settings), no longer ends up partly off the
+  screen; it stays where it was, overlapped.
+
 ## [0.9.1] - 2026-10-23
 
 ### Fixed

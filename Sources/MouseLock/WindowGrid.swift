@@ -288,16 +288,21 @@ final class WindowGrid {
     /// growing or shrinking
     /// (pull and push). Windows it then overlaps are trimmed on the side
     /// facing it, down to one cell; if that isn't enough, one may move
-    /// instead, but only into free space. Otherwise it's left overlapping.
+    /// instead, but only into free space. Otherwise it's left overlapping,
+    /// never pushed off the screen.
     private static func makeRoom(for number: CGWindowID, from before: CGRect, to after: CGRect) {
+        let areas = usableAreas()
+        let onScreen = { (rect: CGRect) in areas.contains { $0.insetBy(dx: -1, dy: -1).contains(rect) } }
         for (other, frame) in roomPlan(for: number, from: before, to: after) {
             guard let element = axWindow(pid: other.pid, frame: other.frame) else { continue }
             log("making room: \(other.frame) -> \(frame)")
             fit(element, into: frame, anchoring: [.left, .top])
             // An app may not let it get that small (a minimum size). If it
-            // overlaps anyway, it might as well keep its size.
-            if let actual = axFrame(element), overlapArea(actual, after) > 1 {
-                log("still overlapping at \(actual); back to \(other.frame)")
+            // overlaps anyway, or now sticks out past the screen's edge, it
+            // might as well keep its size and place.
+            if let actual = axFrame(element),
+               overlapArea(actual, after) > 1 || (onScreen(frame) && !onScreen(actual)) {
+                log("still overlapping or off screen at \(actual); back to \(other.frame)")
                 setAXFrame(element, other.frame)
             }
         }
