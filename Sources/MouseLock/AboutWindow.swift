@@ -84,9 +84,10 @@ final class AboutWindow {
             drag follow it, growing or shrinking, and windows you drag onto are \
             trimmed on the side that costs them least, or move into free space; \
             nothing further along changes. Outlines show all this while you drag. To \
-            drag without any of it, hold Control once you've started dragging (held \
-            before, it makes a right-click). Press Esc while dragging to call it off: \
-            the window goes back where it was when you let go.
+            leave the other windows alone, overlapping them if need be, hold Control \
+            once you've started dragging (held before, it makes a right-click). Press \
+            Esc while dragging to call it off: the window goes back where it was when \
+            you let go.
             """)
         paragraph("""
             A new window opens on the screen with the pointer. If there's free space, \

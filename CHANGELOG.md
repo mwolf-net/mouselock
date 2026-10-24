@@ -6,6 +6,12 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Window Grid: holding Control while dragging a window still snaps it to the
+  cells, but leaves other windows alone, overlapping them if need be.
+  (Before, it skipped the cells too.)
+
 ## [0.9.3] - 2026-10-24
 
 ### Fixed

@@ -555,14 +555,10 @@ final class WindowGrid {
             dragged = true
             // Aborted: the outline stays on where the window goes back to.
             if aborted { return }
-            // Control held: no snapping or pushing, so no preview either.
-            // (Pressed once dragging: held at the press, it makes a right-click.)
-            if event.flags.contains(.maskControl) {
-                previewWork?.cancel()
-                previewWork = nil
-                preview.hide()
-                return
-            }
+            // Control held (pressed once dragging: held at the press, it makes
+            // a right-click): still onto the cells, but other windows are left
+            // alone, overlapping if need be.
+            let pushOthers = !event.flags.contains(.maskControl)
             // Show where the window would snap, about 30 times a second at most.
             guard pressed != nil, previewWork == nil else { return }
             let work = DispatchWorkItem { [weak self] in
@@ -570,7 +566,8 @@ final class WindowGrid {
                 previewWork = nil
                 guard let pressed, let now = Self.frame(of: pressed.number),
                       let snap = Self.snap(from: pressed.frame, to: now) else { return preview.hide() }
-                let others = Self.roomPlan(for: pressed.number, from: pressed.frame, to: snap.target)
+                let others = pushOthers
+                    ? Self.roomPlan(for: pressed.number, from: pressed.frame, to: snap.target) : []
                 preview.show(snap.target, others: others.map(\.1))
             }
             previewWork = work
@@ -590,14 +587,16 @@ final class WindowGrid {
                 }
                 return
             }
-            if event.flags.contains(.maskControl) { return }
+            let pushOthers = !event.flags.contains(.maskControl)
             // Let the app finish the resize or move first.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
                 guard let self, enabled, let now = Self.frame(of: pressed.number),
                       let snap = Self.snap(from: pressed.frame, to: now),
                       let element = axWindow(pid: pressed.pid, frame: now) else { return }
                 if snap.target != now { Self.fit(element, into: snap.target, anchoring: snap.anchoring) }
-                Self.makeRoom(for: pressed.number, from: pressed.frame, to: axFrame(element) ?? snap.target)
+                if pushOthers {
+                    Self.makeRoom(for: pressed.number, from: pressed.frame, to: axFrame(element) ?? snap.target)
+                }
             }
         default:
             break
