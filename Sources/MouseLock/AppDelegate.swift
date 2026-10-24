@@ -14,6 +14,9 @@ let smartTouchHotKeyEquivalent = "s"
 // Hotkey that toggles the window grid: Ctrl+Option+Cmd+W.
 let windowGridHotKeyCode = UInt32(kVK_ANSI_W)
 let windowGridHotKeyEquivalent = "w"
+// Hotkey that undoes the last window layout change: Ctrl+Option+Cmd+Z.
+let undoLayoutHotKeyCode = UInt32(kVK_ANSI_Z)
+let undoLayoutHotKeyEquivalent = "z"
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let locker = Locker()
@@ -334,8 +337,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         grid.state = windowGridOn ? .on : .off
         grid.keyEquivalent = windowGridHotKeyEquivalent
         grid.keyEquivalentModifierMask = hotKeyEquivalentModifiers
-        grid.toolTip = "Divides each screen into roughly square cells, as many as chosen under Window Grid Size. A window you resize or move snaps to the nearest cell edges, with an outline showing where while you drag. Turning it on also snaps all windows on screen to the cells, moving and resizing each as little as possible. Windows against a dragged edge follow it; windows you drag onto make room. Hold Control while dragging to skip all this, or press Esc to put the window back. New windows go into free space at the size they want (or as much as fits), or else open small on top."
+        grid.toolTip = "Divides each screen into roughly square cells, as many as chosen under Window Grid Size. A window you resize or move snaps to the nearest cell edges, with an outline showing where while you drag. Turning it on also snaps all windows on screen to the cells, moving and resizing each as little as possible. Windows against a dragged edge follow it; windows you drag onto make room. Hold Control while dragging to leave other windows alone, or press Esc to put the window back. Windows that made room go back if you pick the window up again within 5 seconds and move it out of their way. New windows go into free space at the size they want (or as much as fits), or else open small on top."
         menu.addItem(grid)
+        let undo = item("Undo Window Layout Change", #selector(undoLayoutClicked))
+        undo.keyEquivalent = undoLayoutHotKeyEquivalent
+        undo.keyEquivalentModifierMask = hotKeyEquivalentModifiers
+        undo.isEnabled = windowGrid.canUndo
+        undo.toolTip = "Puts the windows of the last window drag (including the ones that made room) or of arranging all back where they were. Again for the one before, and so on."
+        menu.addItem(undo)
         // Sizes as each screen's columns × rows, main screen first.
         let sizes = NSMenuItem(title: "Window Grid Size", action: nil, keyEquivalent: "")
         let sizeMenu = NSMenu()
@@ -577,6 +586,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if windowGridOn { windowGrid.arrangeAll() }
     }
 
+    @objc func undoLayoutClicked() { undoLayout() }
+
+    /// From the menu or the hotkey.
+    func undoLayout() {
+        if !windowGrid.undo() { toast.show("Nothing to undo") }
+    }
+
     @objc func wrapPointerClicked() {
         wrapPointer.toggle()
         updateState()
@@ -803,6 +819,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                               nil, MemoryLayout<EventHotKeyID>.size, nil, &id)
             if id.id == 2 {
                 delegate.smartTouchHotKey()
+            } else if id.id == 4 {
+                delegate.undoLayout()
             } else if id.id == 3 {
                 delegate.toggleWindowGrid()
                 delegate.toast.show("Window Grid " + (delegate.windowGridOn ? "On" : "Off"))
@@ -822,5 +840,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var windowGridRef: EventHotKeyRef?
         RegisterEventHotKey(windowGridHotKeyCode, hotKeyModifiers, EventHotKeyID(signature: signature, id: 3),
                             GetApplicationEventTarget(), 0, &windowGridRef)
+        var undoLayoutRef: EventHotKeyRef?
+        RegisterEventHotKey(undoLayoutHotKeyCode, hotKeyModifiers, EventHotKeyID(signature: signature, id: 4),
+                            GetApplicationEventTarget(), 0, &undoLayoutRef)
     }
 }

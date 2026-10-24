@@ -89,6 +89,13 @@ final class AboutWindow {
             Esc while dragging to call it off: the window goes back where it was when \
             you let go.
             """)
+        option("Undo Window Layout Change (Ctrl+Option+Cmd+Z)", """
+            Puts the windows of the last drag back where they were, including the \
+            ones that made room; again for the drag before, and so on. Turning the \
+            grid on (arranging all windows) can be undone the same way. And if you \
+            pick a window up again within 5 seconds and move it out of the way of \
+            windows it just pushed aside, they go back by themselves.
+            """)
         paragraph("""
             A new window opens on the screen with the pointer. If there's free space, \
             it goes there at the size it opened at, rounded to whole cells, or as much \

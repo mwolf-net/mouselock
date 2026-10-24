@@ -39,6 +39,25 @@ final class WindowGrid {
     private let preview = GridPreview()
     private var previewWork: DispatchWorkItem?
 
+    /// Recent layout changes (drags, arranging all), each as the frames the
+    /// windows involved had before, newest last.
+    private var undoStack: [[WindowInfo]] = []
+    private static let undoLimit = 30
+    var canUndo: Bool { !undoStack.isEmpty }
+
+    /// Windows the last drag of a window pushed aside, with where they were
+    /// and where they ended up. Picking that window up again within
+    /// `springBackTime` and dropping it clear of where one was puts that one
+    /// back.
+    private var pushed: Pushed?
+    private struct Pushed {
+        let number: CGWindowID
+        let until: Date
+        let windows: [Moved]
+    }
+    private typealias Moved = (before: WindowInfo, after: CGRect)
+    private static let springBackTime: TimeInterval = 5
+
     struct Grid {
         /// Vertical and horizontal lines, in global coordinates (top left
         /// origin), first and last on the area's edges.
@@ -65,7 +84,9 @@ final class WindowGrid {
         log("arranging all windows")
         let areas = Self.usableAreas()
         var taken: [CGRect] = []
-        for window in Self.windowList() {
+        let windows = Self.windowList()
+        record(windows)
+        for window in windows {
             guard let element = axWindow(pid: window.pid, frame: window.frame) else { continue }
             guard Self.isResizable(element), let grid = Self.grid(for: window.frame, areas: areas) else {
                 taken.append(window.frame)
@@ -303,9 +324,13 @@ final class WindowGrid {
     /// facing it, down to one cell; if that isn't enough, one may move
     /// instead, but only into free space. Otherwise it's left overlapping,
     /// never pushed off the screen.
-    private static func makeRoom(for number: CGWindowID, from before: CGRect, to after: CGRect) {
+    /// Returns the windows changed, as they were and where they ended up.
+    @discardableResult
+    private static func makeRoom(for number: CGWindowID, from before: CGRect,
+                                 to after: CGRect) -> [Moved] {
         let areas = usableAreas()
         let onScreen = { (rect: CGRect) in areas.contains { $0.insetBy(dx: -1, dy: -1).contains(rect) } }
+        var changed: [Moved] = []
         for (other, frame) in roomPlan(for: number, from: before, to: after) {
             guard let element = axWindow(pid: other.pid, frame: other.frame) else { continue }
             log("making room: \(other.frame) -> \(frame)")
@@ -318,7 +343,47 @@ final class WindowGrid {
                 log("still overlapping or off screen at \(actual); back to \(other.frame)")
                 setAXFrame(element, other.frame)
             }
+            if let actual = axFrame(element), !sameFrame(actual, other.frame) { changed.append((other, actual)) }
         }
+        return changed
+    }
+
+    /// The windows pushed aside by the last drag of window `number` that go
+    /// back now it's at `target`: those still where they were pushed to,
+    /// whose old place `target` stays clear of. As each is now, and where
+    /// it goes.
+    private func springBack(for number: CGWindowID, to target: CGRect) -> [(WindowInfo, CGRect)] {
+        guard let pushed, pushed.number == number else { return [] }
+        return pushed.windows.compactMap { window in
+            guard let now = Self.frame(of: window.before.number), Self.sameFrame(now, window.after),
+                  Self.overlapArea(target, window.before.frame) <= 1 else { return nil }
+            return (WindowInfo(number: window.before.number, pid: window.before.pid, frame: now),
+                    window.before.frame)
+        }
+    }
+
+    // MARK: Undo
+
+    /// Remembers `windows`' frames before a layout change.
+    private func record(_ windows: [WindowInfo]) {
+        guard !windows.isEmpty else { return }
+        undoStack.append(windows)
+        if undoStack.count > Self.undoLimit { undoStack.removeFirst() }
+    }
+
+    /// Puts the windows of the last layout change back where they were.
+    /// Returns false if there was nothing to undo.
+    func undo() -> Bool {
+        guard let windows = undoStack.popLast() else { return false }
+        pushed = nil
+        let onScreen = Dictionary(Self.windowList().map { ($0.number, $0) }, uniquingKeysWith: { a, _ in a })
+        for window in windows {
+            guard let now = onScreen[window.number], !Self.sameFrame(now.frame, window.frame),
+                  let element = axWindow(pid: now.pid, frame: now.frame) else { continue }
+            log("undo: \(now.frame) -> \(window.frame)")
+            setAXFrame(element, window.frame)
+        }
+        return true
     }
 
     /// The windows `makeRoom` would change, and how: also for the preview.
@@ -564,6 +629,7 @@ final class WindowGrid {
                 .map { ($0.number, $0.pid, $0.frame) }
             dragged = false
             aborted = false
+            if let pushed, Date() > pushed.until { self.pushed = nil }
         case .leftMouseDragged:
             dragged = true
             // Aborted: the outline stays on where the window goes back to.
@@ -579,8 +645,13 @@ final class WindowGrid {
                 previewWork = nil
                 guard let pressed, let now = Self.frame(of: pressed.number),
                       let snap = Self.snap(from: pressed.frame, to: now) else { return preview.hide() }
-                let others = pushOthers
-                    ? Self.roomPlan(for: pressed.number, from: pressed.frame, to: snap.target) : []
+                var others: [(WindowInfo, CGRect)] = []
+                if pushOthers {
+                    others = springBack(for: pressed.number, to: snap.target)
+                    let springing = Set(others.map(\.0.number))
+                    others += Self.roomPlan(for: pressed.number, from: pressed.frame, to: snap.target)
+                        .filter { !springing.contains($0.0.number) }
+                }
                 preview.show(snap.target, others: others.map(\.1))
             }
             previewWork = work
@@ -603,16 +674,56 @@ final class WindowGrid {
             let pushOthers = !event.flags.contains(.maskControl)
             // Let the app finish the resize or move first.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-                guard let self, enabled, let now = Self.frame(of: pressed.number),
-                      let snap = Self.snap(from: pressed.frame, to: now),
-                      let element = axWindow(pid: pressed.pid, frame: now) else { return }
-                if snap.target != now { Self.fit(element, into: snap.target, anchoring: snap.anchoring) }
-                if pushOthers {
-                    Self.makeRoom(for: pressed.number, from: pressed.frame, to: axFrame(element) ?? snap.target)
-                }
+                self?.finishDrag(of: WindowInfo(number: pressed.number, pid: pressed.pid, frame: pressed.frame),
+                                 pushOthers: pushOthers)
             }
         default:
             break
+        }
+    }
+
+    /// After a drag of `pressed` (its frame as it was): snaps it, and unless
+    /// `pushOthers` is off, makes room and puts windows the last drag of it
+    /// pushed aside back if they can go. Remembered for undo.
+    private func finishDrag(of pressed: WindowInfo, pushOthers: Bool) {
+        guard enabled, let now = Self.frame(of: pressed.number),
+              let snap = Self.snap(from: pressed.frame, to: now),
+              let element = axWindow(pid: pressed.pid, frame: now) else { return }
+        if pushed?.number != pressed.number { pushed = nil }
+        if snap.target != now { Self.fit(element, into: snap.target, anchoring: snap.anchoring) }
+        let after = axFrame(element) ?? snap.target
+        var changed: [WindowInfo] = []
+        if pushOthers {
+            // Windows the last drag pushed aside, if it's now clear of
+            // their old place, go back first.
+            let springs = springBack(for: pressed.number, to: after)
+            for (window, frame) in springs {
+                guard let other = axWindow(pid: window.pid, frame: window.frame) else { continue }
+                log("back out of the way: \(window.frame) -> \(frame)")
+                setAXFrame(other, frame)
+                changed.append(window)
+            }
+            let moved = Self.makeRoom(for: pressed.number, from: pressed.frame, to: after)
+            changed += moved.map(\.before)
+            // Still pushed aside: from before (unless moved by hand
+            // since), and now.
+            let sprung = Set(springs.map(\.0.number))
+            var windows: [Moved] = (pushed?.windows ?? []).filter { window in
+                !sprung.contains(window.before.number)
+                    && Self.frame(of: window.before.number).map { Self.sameFrame($0, window.after) } ?? false
+            }
+            for window in moved {
+                if let index = windows.firstIndex(where: { $0.before.number == window.before.number }) {
+                    windows[index].after = window.after
+                } else {
+                    windows.append(window)
+                }
+            }
+            pushed = windows.isEmpty ? nil
+                : Pushed(number: pressed.number, until: Date() + Self.springBackTime, windows: windows)
+        }
+        if !changed.isEmpty || !Self.sameFrame(after, pressed.frame) {
+            record([pressed] + changed)
         }
     }
 

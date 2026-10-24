@@ -38,7 +38,9 @@ hotkey instead of restarting the browser.
   windows further along; outlines show it all while you drag. Hold Control
   once dragging to leave other windows alone (overlapping them if need be),
   or press Esc to put the window back
-  when you let go. New windows go into free space at the size they want (or
+  when you let go. Windows that made room go back if you pick the window up
+  again within 5 seconds and move it out of their way, and Ctrl+Opt+Cmd+Z
+  undoes the last drags (or arranging all), one by one. New windows go into free space at the size they want (or
   as much as fits), or else open small on top. Turning the grid on arranges all windows on the cells without
   overlapping. When you disconnect a screen, the remaining one keeps showing
   its own windows; the disconnected screen's windows are minimized (or left
@@ -174,7 +176,9 @@ stale entry itself and asks again, so you only need to allow it. (Manually:
 Click the pointer icon in the menu bar. From top to bottom:
 
 - **Window Grid** (Ctrl+Opt+Cmd+W): toggles window snapping; turning it on
-  arranges your windows on the grid. **Window Grid Size** picks how many
+  arranges your windows on the grid. **Undo Window Layout Change**
+  (Ctrl+Opt+Cmd+Z) puts back the windows of the last drag, again and again
+  for earlier ones. **Window Grid Size** picks how many
   cells, shown per screen as columns × rows.
 - **Match Screen Edges** and **Wrap Pointer Around**: how the pointer moves
   between screens.

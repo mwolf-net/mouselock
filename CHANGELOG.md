@@ -6,6 +6,14 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Window Grid: Undo Window Layout Change (Ctrl+Opt+Cmd+Z, also in the menu)
+  puts the windows of the last drag back, including those that made room;
+  repeat for earlier drags. Arranging all windows can be undone too.
+- Window Grid: windows a drag pushed aside go back if you pick the window
+  up again within 5 seconds and move it clear of where they were.
+
 ## [0.10.2] - 2026-10-24
 
 ### Changed
