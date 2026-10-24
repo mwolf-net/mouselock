@@ -99,6 +99,13 @@ final class AboutWindow {
             overlapping, each moving and resizing as little as possible, unless the \
             free space would leave one less than half its size.
             """)
+        paragraph("""
+            When you disconnect a screen, macOS moves its windows to the remaining \
+            ones and shows them there, with your windows on that screen out of sight \
+            in another Space. MouseLock switches back to your windows, minimizes the \
+            moved ones that would clutter them (others keep a Space of their own) and \
+            says so. When you reconnect the screen, they go back where they were.
+            """)
         option("Window Grid Size", """
             How many cells: 6 along each screen's short side by default. Each choice \
             shows the resulting columns × rows on each screen.

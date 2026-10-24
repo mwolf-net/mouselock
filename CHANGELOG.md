@@ -6,6 +6,14 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Window Grid: when a screen is disconnected, the remaining screen shows its
+  own windows again (macOS switches to the departed screen's Space), the
+  departed screen's windows that would clutter it are minimized, and a
+  brief message says so. When the screen is reconnected, they go back where
+  they were.
+
 ### Changed
 
 - Window Grid: holding Control while dragging a window still snaps it to the

@@ -40,7 +40,9 @@ hotkey instead of restarting the browser.
   or press Esc to put the window back
   when you let go. New windows go into free space at the size they want (or
   as much as fits), or else open small on top. Turning the grid on arranges all windows on the cells without
-  overlapping.
+  overlapping. When you disconnect a screen, the remaining one keeps showing
+  its own windows; the disconnected screen's windows are minimized (or left
+  on a Space of their own) and go back when you reconnect it.
 
 ### Between screens
 

@@ -39,6 +39,8 @@ final class WindowRestorer {
         let screenSize: CGSize
         /// Where macOS put it, once it settled.
         var parked: CGRect?
+        /// Set when it was minimized to keep it out of the way.
+        var minimized: AXUIElement?
     }
 
     /// Every window on screen, as of the last look.
@@ -154,30 +156,84 @@ final class WindowRestorer {
         log("switching back to the Space with window \(number)")
         let app = AXUIElementCreateApplication(resident.pid)
         AXUIElementSetAttributeValue(app, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+        // Once the Space has switched, tidy up.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.minimizeMoved(from: gone) }
+    }
+
+    /// Moved windows that ended up among the remaining screen's own, in the
+    /// Space now showing, are minimized (and come back when their screen
+    /// does). The others have a Space of their own.
+    private func minimizeMoved(from gone: Set<String>) {
+        let visible = Dictionary(WindowGrid.windowList().map { ($0.number, $0.frame) }, uniquingKeysWith: { a, _ in a })
+        var minimized = 0, elsewhere = 0
+        for screen in gone {
+            displaced[screen] = displaced[screen]?.map { window in
+                var window = window
+                guard let frame = visible[window.number] else {
+                    elsewhere += 1
+                    return window
+                }
+                guard let element = axWindow(pid: window.pid, frame: frame),
+                      AXUIElementSetAttributeValue(element, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
+                        == .success else { return window }
+                log("minimized window \(window.number)")
+                window.minimized = element
+                minimized += 1
+                return window
+            }
+        }
         let name = gone.compactMap { names[$0] }.first ?? "the disconnected screen"
-        let count = moved.count == 1 ? "1 window" : "\(moved.count) windows"
-        notify?("\(count) from \(name) moved to another Space. Use Mission Control to find them.")
+        func windows(_ count: Int) -> String { count == 1 ? "1 window" : "\(count) windows" }
+        var message = ""
+        if minimized > 0 {
+            message = "Minimized \(windows(minimized)) from \(name); they'll come back when it's reconnected."
+        }
+        if elsewhere > 0 {
+            if !message.isEmpty { message += " " }
+            message += minimized > 0 ? "\(windows(elsewhere)) more on another Space."
+                : "\(windows(elsewhere)) from \(name) moved to another Space."
+        }
+        if !message.isEmpty { notify?(message) }
     }
 
     private func restore(_ windows: [Displaced], to bounds: CGRect, current: [CGWindowID: CGRect]) {
         // Front to back: put the frontmost back last, so it ends up on top.
         for window in windows.reversed() {
+            if let element = window.minimized, Self.isMinimized(element) {
+                let target = target(for: window, on: bounds)
+                log("unminimizing window \(window.number) to \(target)")
+                setAXFrame(element, target)
+                AXUIElementSetAttributeValue(element, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+                setAXFrame(element, target)
+                continue
+            }
             guard let parked = window.parked, let frame = current[window.number] else { continue }
             guard WindowGrid.sameFrame(frame, parked) else {
                 log("window \(window.number) moved since; leaving it at \(frame)")
                 continue
             }
-            // The screen may have come back at another resolution.
-            let scaleX = bounds.width / window.screenSize.width
-            let scaleY = bounds.height / window.screenSize.height
-            var target = CGRect(x: bounds.minX + window.offset.minX * scaleX,
-                                y: bounds.minY + window.offset.minY * scaleY,
-                                width: window.offset.width * scaleX, height: window.offset.height * scaleY)
-            if let snap { target = snap(target) }
+            let target = target(for: window, on: bounds)
             guard let element = axWindow(pid: window.pid, frame: frame) else { continue }
             log("putting window \(window.number) back: \(frame) -> \(target)")
             setAXFrame(element, target)
         }
+    }
+
+    /// Where `window` goes back to on its screen, now at `bounds`.
+    private func target(for window: Displaced, on bounds: CGRect) -> CGRect {
+        // The screen may have come back at another resolution.
+        let scaleX = bounds.width / window.screenSize.width
+        let scaleY = bounds.height / window.screenSize.height
+        let target = CGRect(x: bounds.minX + window.offset.minX * scaleX,
+                            y: bounds.minY + window.offset.minY * scaleY,
+                            width: window.offset.width * scaleX, height: window.offset.height * scaleY)
+        return snap?(target) ?? target
+    }
+
+    private static func isMinimized(_ element: AXUIElement) -> Bool {
+        var value: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXMinimizedAttribute as CFString, &value)
+        return value as? Bool ?? false
     }
 
     /// Notes which screen each window is on.
