@@ -415,7 +415,7 @@ final class WindowGrid {
         FileHandle.standardError.write("window grid: \(message)\n".data(using: .utf8)!)
     }
 
-    private static func sameFrame(_ a: CGRect, _ b: CGRect) -> Bool {
+    static func sameFrame(_ a: CGRect, _ b: CGRect) -> Bool {
         abs(a.minX - b.minX) < 2 && abs(a.minY - b.minY) < 2 && abs(a.width - b.width) < 2
             && abs(a.height - b.height) < 2
     }
@@ -690,6 +690,12 @@ final class WindowGrid {
 
     /// `frame` with the given edges moved to the nearest grid lines, keeping
     /// at least one cell between opposite edges.
+    /// `frame` on the cells of the screen it's mostly on.
+    static func snappedToGrid(_ frame: CGRect) -> CGRect {
+        guard let grid = grid(for: frame, areas: usableAreas()) else { return frame }
+        return snapped(frame, to: grid, edges: .all)
+    }
+
     static func snapped(_ frame: CGRect, to grid: Grid, edges: Edges) -> CGRect {
         func snap(_ low: CGFloat, _ high: CGFloat, _ lines: [CGFloat], snapLow: Bool, snapHigh: Bool)
             -> (CGFloat, CGFloat) {
@@ -716,7 +722,7 @@ final class WindowGrid {
 
     // MARK: Windows
 
-    private struct WindowInfo {
+    struct WindowInfo {
         let number: CGWindowID
         let pid: pid_t
         let frame: CGRect
@@ -724,7 +730,7 @@ final class WindowGrid {
 
     /// Normal windows on screen, front to back, other than our own and tiny
     /// ones (palettes, popups).
-    private static func windowList() -> [WindowInfo] {
+    static func windowList() -> [WindowInfo] {
         guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
                                                     kCGNullWindowID) as? [[String: Any]] else { return [] }
         let me = ProcessInfo.processInfo.processIdentifier

@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let smartTouch = SmartTouch()
     let edgeMatcher = EdgeMatcher()
     let windowGrid = WindowGrid()
+    let windowRestorer = WindowRestorer()
     let touchInput = TouchInput()
     let toast = Toast()
 
@@ -188,6 +189,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         locker.avoidTopEdge = keepMenuBarHidden
         lockScreen = chosenLockScreen() ?? defaultLockScreen()
         locker.onChange = { [weak self] in self?.updateState() }
+        windowRestorer.snap = WindowGrid.snappedToGrid
+        windowRestorer.notify = { [weak self] message in self?.toast.show(message, for: 5) }
         locker.onClick = { [weak self] point, isPress in
             guard let self else { return }
             reassertHiddenPointer()
@@ -271,6 +274,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         edgeMatcher.enabled = matchScreenEdges && !locker.isLocked
         edgeMatcher.wrap = wrapPointer && !locker.isLocked
         windowGrid.enabled = windowGridOn
+        windowRestorer.enabled = windowGridOn
 
         let symbol = !EventTaps.lastKnown ? "exclamationmark.triangle"
             : locker.isLocked ? "lock.fill"

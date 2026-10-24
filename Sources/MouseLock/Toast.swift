@@ -9,7 +9,7 @@ final class Toast {
     private let label = NSTextField(labelWithString: "")
     private var hideWork: DispatchWorkItem?
 
-    func show(_ message: String) {
+    func show(_ message: String, for duration: TimeInterval = Toast.duration) {
         let panel = self.panel ?? makePanel()
         self.panel = panel
         label.stringValue = message
@@ -41,7 +41,7 @@ final class Toast {
             })
         }
         hideWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.duration, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: work)
     }
 
     private func makePanel() -> NSPanel {
