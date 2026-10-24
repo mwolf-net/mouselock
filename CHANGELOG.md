@@ -6,6 +6,8 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-24
+
 ### Changed
 
 - Window Grid: a new window gets at least a usable size, about 480×360
@@ -343,7 +345,8 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/mwolf-net/mouselock/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/mwolf-net/mouselock/compare/v0.9.3...v0.10.0
 [0.9.3]: https://github.com/mwolf-net/mouselock/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/mwolf-net/mouselock/compare/v0.9.1...v0.9.2
