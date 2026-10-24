@@ -6,6 +6,8 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-24
+
 ### Added
 
 - Window Grid: Undo Window Layout Change (Ctrl+Opt+Cmd+Z, also in the menu)
@@ -360,7 +362,8 @@ First public release.
 - While locked, the menu is disabled so only the keyboard can unlock.
 - Start at Login.
 
-[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.10.2...HEAD
+[Unreleased]: https://github.com/mwolf-net/mouselock/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/mwolf-net/mouselock/compare/v0.10.2...v0.11.0
 [0.10.2]: https://github.com/mwolf-net/mouselock/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/mwolf-net/mouselock/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/mwolf-net/mouselock/compare/v0.9.3...v0.10.0
