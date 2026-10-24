@@ -6,6 +6,12 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Window Grid: a new window gets at least a usable size, about 480×360
+  points in whole cells (unless it opened smaller or the app needs more),
+  instead of a single cell, which can be tiny with small cells.
+
 ## [0.10.0] - 2026-10-24
 
 ### Added

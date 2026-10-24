@@ -172,10 +172,15 @@ final class WindowGrid {
         }
     }
 
+    /// The least a new window gets, in points (in whole cells, at most half
+    /// the screen each way, and no more than it opened at): small enough not
+    /// to push many windows aside when moved, big enough to use.
+    private static let usableSize = CGSize(width: 480, height: 360)
+
     /// Puts a new window on the grid of the screen with the pointer. In free
     /// space: at the size it opened at, rounded to whole cells, or as much of
-    /// that as fits (at least its smallest size, and one cell), nearest the
-    /// middle. With no free space: at its smallest size, on top of other
+    /// that as fits (at least its smallest size, and `usableSize`), nearest the
+    /// middle. With no free space: at that least size, on top of other
     /// windows where it hides the smallest share of any one of them (partly
     /// covering several rather than hiding one). It never pushes others aside.
     private func place(_ window: AXUIElement) {
@@ -197,8 +202,16 @@ final class WindowGrid {
             AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, value)
         }
         let smallest = axFrame(window)?.size ?? cell
-        let columns = min(grid.xs.count - 1, max(1, Int((smallest.width / cell.width - 0.05).rounded(.up))))
-        let rows = min(grid.ys.count - 1, max(1, Int((smallest.height / cell.height - 0.05).rounded(.up))))
+        func cells(_ length: CGFloat, _ cell: CGFloat) -> Int { max(1, Int((length / cell - 0.05).rounded(.up))) }
+        let wanted = (columns: Int((frame.width / cell.width).rounded()), rows: Int((frame.height / cell.height).rounded()))
+        // At least the app's smallest size, and (unless it opened smaller)
+        // a usable one: with small cells, one would be tiny.
+        let usable = CGSize(width: min(Self.usableSize.width, area.width / 2),
+                            height: min(Self.usableSize.height, area.height / 2))
+        let columns = min(grid.xs.count - 1, max(cells(smallest.width, cell.width),
+                                                 min(wanted.columns, cells(usable.width, cell.width))))
+        let rows = min(grid.ys.count - 1, max(cells(smallest.height, cell.height),
+                                              min(wanted.rows, cells(usable.height, cell.height))))
 
         var number = CGWindowID(0)
         let known = _AXUIElementGetWindow(window, &number) == .success
@@ -215,8 +228,8 @@ final class WindowGrid {
 
         // In free space: the size it opened at (in whole cells) if that fits,
         // else as much of it as does; the largest such spot, nearest the middle.
-        let wantedColumns = min(grid.xs.count - 1, max(columns, Int((frame.width / cell.width).rounded())))
-        let wantedRows = min(grid.ys.count - 1, max(rows, Int((frame.height / cell.height).rounded())))
+        let wantedColumns = min(grid.xs.count - 1, max(columns, wanted.columns))
+        let wantedRows = min(grid.ys.count - 1, max(rows, wanted.rows))
         var free: (rect: CGRect, score: (CGFloat, CGFloat))?
         for width in columns...wantedColumns {
             for height in rows...wantedRows {

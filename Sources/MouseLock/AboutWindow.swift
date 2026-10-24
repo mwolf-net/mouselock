@@ -92,8 +92,8 @@ final class AboutWindow {
         paragraph("""
             A new window opens on the screen with the pointer. If there's free space, \
             it goes there at the size it opened at, rounded to whole cells, or as much \
-            of that as fits, near the middle. If not, it opens at its smallest size, \
-            at least one cell, on top, covering as little as possible of any one \
+            of that as fits, near the middle. If not, it opens small (but still usable, \
+            about 480×360 points, unless it opened smaller) on top, covering as little as possible of any one \
             window. Turning the grid on, or starting \
             MouseLock with it on, arranges all windows on the cells without \
             overlapping, each moving and resizing as little as possible, unless the \
