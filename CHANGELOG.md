@@ -6,6 +6,16 @@ All notable changes to MouseLock are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Turning off MouseLock's Accessibility permission while it ran froze the
+  mouse and keyboard for the whole session (login screen included) until a
+  restart: macOS kept passing all input through MouseLock's event taps and
+  then dropped it. MouseLock now removes its taps the moment the permission
+  goes, and sets them up again when it's back. A change macOS doesn't
+  announce is caught within a minute, with a message explaining what
+  happened.
+
 ## [0.9.2] - 2026-10-24
 
 ### Fixed

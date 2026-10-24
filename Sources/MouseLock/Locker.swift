@@ -120,9 +120,12 @@ final class Locker {
     }
 
     private func ensureTap() -> CFMachPort? {
-        if let tap { return tap }
-        let prompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-        guard AXIsProcessTrustedWithOptions([prompt: true] as CFDictionary) else { return nil }
+        if let tap, EventTaps.isLive(tap) { return tap }
+        guard EventTaps.permitted else {
+            let prompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+            _ = AXIsProcessTrustedWithOptions([prompt: true] as CFDictionary)
+            return nil
+        }
 
         let types: [CGEventType] = [
             .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
@@ -146,6 +149,7 @@ final class Locker {
         let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         self.tap = tap
+        EventTaps.add(tap)
         return tap
     }
 

@@ -468,7 +468,8 @@ final class WindowGrid {
     }
 
     private func ensureKeyTap() -> CFMachPort? {
-        if let keyTap { return keyTap }
+        if let keyTap, EventTaps.isLive(keyTap) { return keyTap }
+        guard EventTaps.permitted else { return nil }
         let mask = (CGEventMask(1) << CGEventType.keyDown.rawValue) | (CGEventMask(1) << CGEventType.keyUp.rawValue)
         let callback: CGEventTapCallBack = { _, type, event, refcon in
             let grid = Unmanaged<WindowGrid>.fromOpaque(refcon!).takeUnretainedValue()
@@ -486,6 +487,7 @@ final class WindowGrid {
         let source = CFMachPortCreateRunLoopSource(nil, keyTap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         self.keyTap = keyTap
+        EventTaps.add(keyTap)
         return keyTap
     }
 
@@ -512,8 +514,8 @@ final class WindowGrid {
     }
 
     private func ensureTap() -> CFMachPort? {
-        if let tap { return tap }
-        guard AXIsProcessTrusted() else { return nil }
+        if let tap, EventTaps.isLive(tap) { return tap }
+        guard EventTaps.permitted else { return nil }
         let types: [CGEventType] = [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
         let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
         let callback: CGEventTapCallBack = { _, type, event, refcon in
@@ -534,6 +536,7 @@ final class WindowGrid {
         let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         self.tap = tap
+        EventTaps.add(tap)
         return tap
     }
 

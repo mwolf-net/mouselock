@@ -77,9 +77,12 @@ final class SmartTouch {
     }
 
     private func ensureTap() -> CFMachPort? {
-        if let tap { return tap }
-        let prompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-        guard AXIsProcessTrustedWithOptions([prompt: true] as CFDictionary) else { return nil }
+        if let tap, EventTaps.isLive(tap) { return tap }
+        guard EventTaps.permitted else {
+            let prompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+            _ = AXIsProcessTrustedWithOptions([prompt: true] as CFDictionary)
+            return nil
+        }
 
         let types: [CGEventType] = [.mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp]
         let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
@@ -99,6 +102,7 @@ final class SmartTouch {
         let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         self.tap = tap
+        EventTaps.add(tap)
         return tap
     }
 

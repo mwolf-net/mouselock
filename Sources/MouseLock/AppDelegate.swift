@@ -196,6 +196,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateState()
         registerHotKey()
         checkAccessibilityPermission()
+        watchForPermissionLoss()
         // Started with the window grid on (say at login): arrange the windows
         // once they're likely there.
         if windowGridOn {
@@ -271,7 +272,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         edgeMatcher.wrap = wrapPointer && !locker.isLocked
         windowGrid.enabled = windowGridOn
 
-        let symbol = !AXIsProcessTrusted() ? "exclamationmark.triangle"
+        let symbol = !EventTaps.lastKnown ? "exclamationmark.triangle"
             : locker.isLocked ? "lock.fill"
             : stayAwake.isActive ? "cup.and.saucer.fill"
             : "cursorarrow"
@@ -309,7 +310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        if !AXIsProcessTrusted() {
+        if !EventTaps.lastKnown {
             let permission = item("Accessibility Permission Needed\u{2026}", #selector(accessibilityClicked))
             permission.toolTip = "MouseLock needs Accessibility permission to see and adjust mouse and touch input; without it, locking and the touch screen options don't work. Opens System Settings."
             menu.addItem(permission)
@@ -651,7 +652,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// the first launch of a build without permission, remove that stale
     /// entry and ask again; then watch for the permission being granted.
     private func checkAccessibilityPermission() {
-        guard !AXIsProcessTrusted() else { return }
+        guard !EventTaps.permitted else { return }
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
         if UserDefaults.standard.string(forKey: "permissionResetForBuild") != build,
            let bundleID = Bundle.main.bundleIdentifier {
@@ -663,12 +664,76 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             reset.waitUntilExit()
         }
         requestAccessibilityPermission()
+        waitForPermission()
+    }
+
+    private func waitForPermission() {
+        permissionTimer?.invalidate()
         permissionTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] timer in
-            guard AXIsProcessTrusted() else { return }
+            guard EventTaps.permitted else { return }
             timer.invalidate()
             self?.permissionTimer = nil
+            if debugLogging {
+                FileHandle.standardError.write("accessibility permission granted; setting up event taps\n".data(using: .utf8)!)
+            }
             // Now the event taps can be created.
             self?.updateState()
+        }
+    }
+
+    /// Taking the permission away while the event taps exist freezes all
+    /// input (see EventTaps), so remove them as soon as that happens. macOS
+    /// announces changes to the Accessibility list; a timer catches any
+    /// change it doesn't announce.
+    private func watchForPermissionLoss() {
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.apple.accessibility.api"), object: nil, queue: .main
+        ) { [weak self] _ in
+            // The change can take a moment to apply.
+            for delay in [0.0, 0.3, 1.0] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { self?.checkPermissionKept() }
+            }
+        }
+        // In case a change isn't announced (say one made with tccutil, or by
+        // a management profile). Each check starts a process, so only once a
+        // minute: input may then be frozen for up to that long, rather than
+        // until a restart. Also while a menu is open.
+        RunLoop.main.add(Timer(timeInterval: 60, repeats: true) { [weak self] _ in
+            self?.checkPermissionKept(announced: false)
+        }, forMode: .common)
+    }
+
+    private func checkPermissionKept(announced: Bool = true) {
+        guard !EventTaps.isEmpty, !EventTaps.permitted else { return }
+        if debugLogging {
+            FileHandle.standardError.write("accessibility permission lost; removing event taps\n".data(using: .utf8)!)
+        }
+        EventTaps.removeAll()
+        StuckButtons.releaseAll()
+        if locker.isLocked { locker.unlock() }
+        // Recreate them once it's back.
+        waitForPermission()
+        if !announced { explainPermissionLoss() }
+    }
+
+    /// Mouse and keyboard may just have been frozen for a while: say why, so
+    /// it doesn't look like MouseLock misbehaving.
+    private func explainPermissionLoss() {
+        let alert = NSAlert()
+        alert.messageText = "MouseLock's Accessibility permission was turned off"
+        alert.informativeText = """
+            macOS took away MouseLock's permission without letting it know right away. \
+            Until MouseLock noticed, the mouse and keyboard may not have responded \
+            for up to a minute.
+
+            MouseLock's features are paused. They come back by themselves when you \
+            allow MouseLock again in System Settings > Privacy & Security > Accessibility.
+            """
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Open Accessibility Settings")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertSecondButtonReturn {
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
         }
     }
 

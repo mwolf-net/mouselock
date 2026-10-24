@@ -47,8 +47,8 @@ final class EdgeMatcher {
     }
 
     private func ensureTap() -> CFMachPort? {
-        if let tap { return tap }
-        guard AXIsProcessTrusted() else { return nil }
+        if let tap, EventTaps.isLive(tap) { return tap }
+        guard EventTaps.permitted else { return nil }
         let types: [CGEventType] = [.mouseMoved, .leftMouseDown, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]
         let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
         let callback: CGEventTapCallBack = { _, type, event, refcon in
@@ -67,6 +67,7 @@ final class EdgeMatcher {
         let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         self.tap = tap
+        EventTaps.add(tap)
         return tap
     }
 

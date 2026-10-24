@@ -7,6 +7,11 @@
 
 import AppKit
 
+if CommandLine.arguments.contains(EventTaps.permissionCheckArgument) {
+    EventTaps.printPermission()
+    exit(0)
+}
+
 // Only one instance: a second one couldn't get the hotkey, and two locks
 // to different screens would fight over the pointer.
 let me = NSRunningApplication.current

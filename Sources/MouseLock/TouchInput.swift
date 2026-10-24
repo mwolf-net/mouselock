@@ -77,8 +77,8 @@ final class TouchInput {
     }
 
     private func ensureTap() -> CFMachPort? {
-        if let tap { return tap }
-        guard AXIsProcessTrusted() else { return nil }
+        if let tap, EventTaps.isLive(tap) { return tap }
+        guard EventTaps.permitted else { return nil }
 
         let types: [CGEventType] = [
             .mouseMoved, .leftMouseDown, .leftMouseUp, .leftMouseDragged,
@@ -104,6 +104,7 @@ final class TouchInput {
         let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         self.tap = tap
+        EventTaps.add(tap)
         return tap
     }
 
